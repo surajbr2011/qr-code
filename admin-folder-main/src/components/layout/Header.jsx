@@ -45,7 +45,7 @@ export default function Header({ onSearch, onToggleSidebar }) {
   ];
 
   useEffect(() => {
-    const API_URL = import.meta.env.VITE_API_URL || "https://qr-code-uuun.onrender.com/api";
+    const API_URL = import.meta.env.VITE_API_URL || "https://qr-code-1-1aya.onrender.com/api";
 
     // Update Token & Connect
     const token = localStorage.getItem("admin_token");
@@ -108,7 +108,7 @@ export default function Header({ onSearch, onToggleSidebar }) {
 
   const markAsRead = async (id) => {
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "https://qr-code-uuun.onrender.com/api";
+      const API_URL = import.meta.env.VITE_API_URL || "https://qr-code-1-1aya.onrender.com/api";
       await fetch(`${API_URL}/notifications/${id}/read`, { method: 'PUT' });
       setNotifications(prev => prev.map(n => n._id === id ? { ...n, isRead: true } : n));
     } catch (err) {
@@ -118,7 +118,7 @@ export default function Header({ onSearch, onToggleSidebar }) {
 
   const deleteNotification = async (id) => {
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "https://qr-code-uuun.onrender.com/api";
+      const API_URL = import.meta.env.VITE_API_URL || "https://qr-code-1-1aya.onrender.com/api";
       await fetch(`${API_URL}/notifications/${id}`, { method: 'DELETE' });
       setNotifications(prev => prev.filter(n => n._id !== id));
       toast.success("Notification deleted");
@@ -131,7 +131,7 @@ export default function Header({ onSearch, onToggleSidebar }) {
   const clearAllNotifications = async () => {
     try {
       if (!window.confirm("Are you sure you want to clear all notifications?")) return;
-      const API_URL = import.meta.env.VITE_API_URL || "https://qr-code-uuun.onrender.com/api";
+      const API_URL = import.meta.env.VITE_API_URL || "https://qr-code-1-1aya.onrender.com/api";
       await fetch(`${API_URL}/notifications`, { method: 'DELETE' });
       setNotifications([]);
       toast.success("All notifications cleared");

@@ -2,7 +2,7 @@ import { io } from "socket.io-client";
 
 // Initialize socket connection
 // Should match the backend URL
-const URL = "https://qr-code-uuun.onrender.com";
+const URL = "https://qr-code-1-1aya.onrender.com";
 
 const socket = io(URL, {
     autoConnect: false, // Wait until we manually connect (e.g., after login)

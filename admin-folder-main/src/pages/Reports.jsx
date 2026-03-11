@@ -55,7 +55,7 @@ export default function Reports() {
     fetchData();
 
     // Socket Connection
-    const socketUrl = (import.meta.env.VITE_API_URL || "https://qr-code-uuun.onrender.com/api").replace("/api", "");
+    const socketUrl = (import.meta.env.VITE_API_URL || "https://qr-code-1-1aya.onrender.com/api").replace("/api", "");
     const socket = io(socketUrl, {
       transports: ["websocket", "polling"],
       withCredentials: true

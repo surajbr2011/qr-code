@@ -17,7 +17,7 @@ export function AuthProvider({ children }) {
     }, []);
 
     const login = async (identity, password) => {
-        const API_URL = import.meta.env.VITE_API_URL || 'https://qr-code-uuun.onrender.com/api';
+        const API_URL = import.meta.env.VITE_API_URL || 'https://qr-code-1-1aya.onrender.com/api';
 
         // Check if identity is email
         const isEmail = identity.includes('@');
