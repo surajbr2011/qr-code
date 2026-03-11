@@ -87,7 +87,7 @@ export function OrderProvider({ children }) {
   // Sound and Socket
   useEffect(() => {
     const token = localStorage.getItem("staff_token");
-    const socket = io("http://localhost:5001", {
+    const socket = io("https://qr-code-uuun.onrender.com", {
       auth: { token },
       withCredentials: true
     });

@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create an axios instance with default config
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5001/api', // Use env var if available
+    baseURL: import.meta.env.VITE_API_URL || 'https://qr-code-uuun.onrender.com/api', // Use env var if available
     timeout: 10000,
     headers: {
         'Content-Type': 'application/json',
