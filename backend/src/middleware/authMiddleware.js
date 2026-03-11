@@ -7,7 +7,7 @@ const protect = async (req, res, next) => {
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
         try {
             token = req.headers.authorization.split(' ')[1];
-            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_jwt_secret');
 
             // Try finding Staff first
             let user = await Staff.findById(decoded.id).select('-password');
@@ -52,7 +52,7 @@ const optionalAuth = async (req, res, next) => {
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
         try {
             token = req.headers.authorization.split(' ')[1];
-            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_jwt_secret');
             // Check Staff first, then User? Or we need separate middlewares?
             // Since we have separate models, let's try to find either.
             let user = await Staff.findById(decoded.id).select('-password');

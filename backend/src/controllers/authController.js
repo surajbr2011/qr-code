@@ -409,7 +409,7 @@ const refreshToken = async (req, res) => {
     if (!refreshToken) return res.status(401).json({ message: 'Refresh token missing' });
 
     try {
-        const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET);
+        const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'fallback_jwt_secret');
         const staff = await Staff.findById(decoded.id);
         if (!staff) return res.status(401).json({ message: 'Invalid refresh token' });
 

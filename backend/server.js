@@ -78,7 +78,7 @@ io.use((socket, next) => {
 
         if (token) {
             try {
-                const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_jwt_secret');
                 socket.data.user = { id: decoded.id };
             } catch (e) {
                 console.log("Invalid token, proceeding as guest listener");
