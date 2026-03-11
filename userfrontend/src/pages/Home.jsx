@@ -19,6 +19,24 @@ export default function Home() {
       {/* Main Content */}
       <div className="p-4 space-y-4">
 
+        {/* Offers Card */}
+        <div
+          onClick={() => navigate("/offers")}
+          className="bg-purple-600 text-white rounded-lg p-6 cursor-pointer"
+        >
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-lg font-semibold">Exclusive Offers</h2>
+              <p className="text-sm opacity-90">
+                Check out today's special deals
+              </p>
+            </div>
+            <div className="bg-white/20 p-2 rounded-full">
+              <img src="/icons/discount.png" className="w-6 h-6 invert" alt="Offers" onError={(e) => e.target.style.display = 'none'} />
+            </div>
+          </div>
+        </div>
+
         {/* Menu Card */}
         <div
           onClick={() => navigate("/menu")}

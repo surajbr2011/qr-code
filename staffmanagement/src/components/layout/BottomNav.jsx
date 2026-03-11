@@ -6,7 +6,7 @@ import ProfileIcon from "../../assets/images/Profile.png";
 export default function BottomNav() {
   return (
     <div className="w-full bg-white border-t flex justify-around items-center py-3 z-50">
-      <NavItem to="/staff/menu" icon={HomeIcon} alt="Home" />
+      <NavItem to="/staff/orders" icon={HomeIcon} alt="Home" />
       <NavItem to="/staff/cart" icon={CartIcon} alt="Cart" />
       <NavItem to="/staff/profile" icon={ProfileIcon} alt="Profile" />
     </div>

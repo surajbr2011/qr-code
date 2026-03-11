@@ -1,15 +1,15 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
+import { ThemeProvider } from "./context/ThemeContext";
 
 /* AUTH */
-import Signup from "./auth/pages/Signup";
-import Login from "./auth/pages/Login";
-import ForgotPassword from "./auth/pages/ForgotPassword";
+import GuestLogin from "./auth/pages/GuestLogin";
 import ProfileDetails from "./auth/pages/ProfileDetails";
 
+
 /* APP PAGES */
-import Dashboard from "./pages/Dashboard";
 import Menu from "./pages/Menu";
+import CategoryDetail from "./pages/CategoryDetail";
 import Cart from "./pages/Cart";
 import OrderConfirmation from "./pages/OrderConfirmation";
 import OrderTracking from "./pages/OrderTracking";
@@ -19,25 +19,37 @@ import Support from "./pages/Support";
 import Bill from "./pages/Bill";
 import OrderHistory from "./pages/OrderHistory";
 import Payment from "./pages/Payment";
+import Landing from "./pages/Landing";
+import Offers from "./pages/Offers";
+import OfferDetails from "./pages/OfferDetails";
 
-export default function App() {
+import { useTheme } from "./context/ThemeContext";
+import GlobalTransition from "./components/GlobalTransition";
+
+function AppContent() {
+  const { theme } = useTheme();
+
   return (
-    <>
+    <div className={`min-h-screen w-full transition-colors duration-500 ${theme.bg}`}>
+      <GlobalTransition />
       <Toaster position="bottom-center" toastOptions={{ duration: 2000 }} />
       <Routes>
 
         {/* ✅ DEFAULT ROUTE — FIXES YOUR WARNING */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        {/* ✅ LANDING / QR HANDLER */}
+        <Route path="/" element={<Landing />} />
 
         {/* AUTH FLOW */}
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/sign-up" element={<Signup />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/login" element={<GuestLogin />} />
+        <Route path="/sign-up" element={<Navigate to="/login" replace />} />
+        <Route path="/forgot-password" element={<Navigate to="/login" replace />} />
         <Route path="/profile-details" element={<ProfileDetails />} />
 
         {/* MAIN APP */}
         <Route path="/menu" element={<Menu />} />
+        <Route path="/menu/:categoryId" element={<CategoryDetail />} />
+        <Route path="/offers" element={<Offers />} />
+        <Route path="/offers/:id" element={<OfferDetails />} />
         <Route path="/cart" element={<Cart />} />
         <Route path="/order-confirmation" element={<OrderConfirmation />} />
         <Route path="/order-tracking" element={<OrderTracking />} />
@@ -51,9 +63,17 @@ export default function App() {
         <Route path="/payment" element={<Payment />} />
 
         {/* FALLBACK */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/menu" replace />} />
 
       </Routes>
-    </>
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 }

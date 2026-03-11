@@ -132,14 +132,7 @@ export default function OrderManagement() {
 
                   <div>
                     <p className="font-bold text-gray-900">{order.room}</p>
-                    <ul className="text-sm text-gray-600 mt-1 space-y-0.5">
-                      {order.items.map((it, idx) => (
-                        <li key={idx} className="flex items-center gap-2">
-                          <span className="w-1 h-1 rounded-full bg-gray-300" />
-                          {it}
-                        </li>
-                      ))}
-                    </ul>
+                    <OrderItemsDisplay items={order.items} align="left" />
                   </div>
                 </div>
 
@@ -168,6 +161,7 @@ export default function OrderManagement() {
                 <OrderCard
                   key={o.id}
                   title={o.room ?? `Table ${i + 1}`}
+                  items={o.items}
                   status={o.status}
                   color={o.color}
                   onStatusClick={() => advanceStatus(o.id, "table")}
@@ -194,6 +188,7 @@ export default function OrderManagement() {
                 <OrderCard
                   key={o.id}
                   title={o.room}
+                  items={o.items}
                   status={o.status}
                   color={o.color}
                   onStatusClick={() => advanceStatus(o.id, "room")}
@@ -236,12 +231,12 @@ function SectionHeader({ title, active, onChange }) {
   );
 }
 
-function OrderCard({ title, status, color, onStatusClick }) {
+function OrderCard({ title, items, status, color, onStatusClick }) {
   return (
     <div
       className="bg-white border border-gray-100 rounded-3xl p-6
                  shadow-sm hover:shadow-xl transition-all duration-300
-                 aspect-square flex flex-col justify-between text-center group"
+                 flex flex-col justify-between text-center group"
     >
       {/* TOP CONTENT */}
       <div>
@@ -278,9 +273,9 @@ function OrderCard({ title, status, color, onStatusClick }) {
         <p className="font-bold text-lg text-gray-900">{title}</p>
 
         {/* ITEMS */}
-        <p className="text-sm text-gray-500 mt-3 leading-relaxed line-clamp-2">
-          Punner Tikka, Sprite, Pepsi, Old Monk, Chicken Kabab
-        </p>
+        <div className="mt-3">
+          <OrderItemsDisplay items={typeof items === 'string' ? items.split(', ') : items} align="center" />
+        </div>
 
         {/* USER + TIME */}
         <div className="flex justify-center gap-4 text-xs font-semibold text-gray-400 mt-3 uppercase tracking-wide">
@@ -303,6 +298,48 @@ function OrderCard({ title, status, color, onStatusClick }) {
       >
         {status}
       </button>
+    </div>
+  );
+}
+
+function OrderItemsDisplay({ items, align = "left" }) {
+  const [expanded, setExpanded] = useState(false);
+
+  // Robust normalization
+  const normalizedItems = Array.isArray(items)
+    ? items.map(it => (typeof it === 'string' ? { name: it, qty: 1 } : it))
+    : [];
+
+  const displayItems = expanded ? normalizedItems : normalizedItems.slice(0, 2);
+  const hasMore = normalizedItems.length > 2;
+
+  return (
+    <div className={`w-full flex flex-col ${align === "center" ? "items-center" : "items-start"}`}>
+      <ul className={`text-sm text-gray-600 space-y-1 w-full ${align === "center" ? "flex flex-col items-center" : ""}`}>
+        {displayItems.map((it, idx) => (
+          <li key={idx} className="flex items-center gap-1.5 max-w-full">
+            <span className="w-1 h-1 rounded-full bg-gray-300 shrink-0" />
+            <span className="truncate font-medium">{it.name || it}</span>
+            <span className="text-gray-400 text-xs shrink-0">x{it.qty || it.quantity || 1}</span>
+          </li>
+        ))}
+      </ul>
+
+      {hasMore && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpanded(!expanded);
+          }}
+          className="mt-2 text-[11px] font-bold text-blue-500 hover:text-blue-700 flex items-center gap-1 transition-colors"
+        >
+          {expanded ? "Show Less" : `+${normalizedItems.length - 2} more items`}
+          <Icon
+            icon={expanded ? "mdi:chevron-up" : "mdi:chevron-down"}
+            width={16}
+          />
+        </button>
+      )}
     </div>
   );
 }

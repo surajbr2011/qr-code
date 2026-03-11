@@ -1,123 +1,121 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import PageWrapper from "../../components/PageWrapper";
-import { FiEye, FiEyeOff } from "react-icons/fi";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+import toast from "react-hot-toast";
+import { Mail, Lock, Eye, EyeOff, ChefHat } from "lucide-react";
 
 export default function Login() {
     const navigate = useNavigate();
-
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
+    const { login } = useAuth();
     const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [formData, setFormData] = useState({
+        email: "",
+        password: "",
+    });
 
-    const [emailError, setEmailError] = useState("");
-    const [passwordError, setPasswordError] = useState("");
-
-    // Email regex (A–Z, a–z, 0–9, ., @) - Matching userfrontend
-    const emailRegex = /^[A-Za-z0-9._]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
-    // Strict password regex: 8-20 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char
-    const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s]).{8,20}$/;
-
-    const handleSubmit = () => {
-        let valid = true;
-
-        // Reset errors
-        setEmailError("");
-        setPasswordError("");
-
-        // Validate email
-        if (!emailRegex.test(email)) {
-            setEmailError("Email is incorrect");
-            valid = false;
-        }
-
-        // Validate password
-        if (!PASSWORD_REGEX.test(password)) {
-            setPasswordError("Password must be 8–20 chars with uppercase, lowercase, number & symbol");
-            valid = false;
-        }
-
-        // If both valid → proceed
-        if (valid) {
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            await login(formData.email, formData.password);
+            toast.success("Welcome back, Chef!");
             navigate("/staff/orders");
+        } catch (err) {
+            console.error(err);
+            toast.error(typeof err === 'string' ? err : "Invalid credentials");
+        } finally {
+            setLoading(false);
         }
     };
 
     return (
-        <PageWrapper className="bg-white min-h-screen flex flex-col px-6 pt-10 text-black max-w-[430px] mx-auto">
-            <h1 className="text-xl font-bold text-center mb-8">
-                Hotel Management
-            </h1>
+        <div className="min-h-screen bg-black text-white flex flex-col justify-center px-6 relative overflow-hidden">
+            {/* BACKGROUND ELEMENTS */}
+            <div className="absolute top-[-10%] right-[-20%] w-[300px] h-[300px] bg-orange-500/20 rounded-full blur-[100px]" />
+            <div className="absolute bottom-[-10%] left-[-20%] w-[250px] h-[250px] bg-blue-500/10 rounded-full blur-[80px]" />
 
-            <h2 className="text-base font-semibold text-center text-black">
-                Welcome Back
-            </h2>
-            <p className="text-sm text-gray-500 text-center mb-6">
-                Login to your account
-            </p>
-
-            <div className="space-y-4">
-                {/* Email Input */}
-                <div>
-                    <input
-                        type="email"
-                        placeholder="email@domain.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className={`w-full border ${emailError ? 'border-red-500' : 'border-gray-300'} rounded-xl px-4 py-3 text-sm outline-none focus:border-black transition-colors`}
-                    />
-                    {emailError && <p className="text-red-500 text-xs mt-1 ml-1">{emailError}</p>}
-                </div>
-
-                {/* Password Input */}
-                <div>
-                    <div className="relative">
-                        <input
-                            type={showPassword ? "text" : "password"}
-                            placeholder="Password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className={`w-full border ${passwordError ? 'border-red-500' : 'border-gray-300'} rounded-xl px-4 py-3 text-sm outline-none focus:border-black transition-colors pr-10`}
-                        />
-                        <button
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                        >
-                            {showPassword ? <FiEyeOff size={20} /> : <FiEye size={20} />}
-                        </button>
+            <div className="z-10 w-full max-w-[400px] mx-auto">
+                {/* LOGO AREA */}
+                <div className="mb-12 text-center">
+                    <div className="w-20 h-20 bg-gradient-to-tr from-orange-500 to-red-500 rounded-3xl mx-auto flex items-center justify-center mb-6 shadow-2xl shadow-orange-500/20">
+                        <ChefHat size={40} className="text-white" />
                     </div>
-                    {passwordError && <p className="text-red-500 text-xs mt-1 ml-1">{passwordError}</p>}
+                    <h1 className="text-3xl font-bold mb-2">Staff Portal</h1>
+                    <p className="text-gray-400">Manage orders efficiently</p>
                 </div>
+
+                {/* FORM */}
+                <form onSubmit={handleSubmit} className="space-y-5">
+                    {/* EMAIL */}
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-gray-400 pl-1 uppercase tracking-wider">Email Address</label>
+                        <div className="relative group">
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-orange-500 transition-colors">
+                                <Mail size={20} />
+                            </div>
+                            <input
+                                type="email"
+                                required
+                                className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/50 text-white placeholder:text-zinc-600 transition-all"
+                                placeholder="staff@restaurant.com"
+                                value={formData.email}
+                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                            />
+                        </div>
+                    </div>
+
+                    {/* PASSWORD */}
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-gray-400 pl-1 uppercase tracking-wider">Password</label>
+                        <div className="relative group">
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-orange-500 transition-colors">
+                                <Lock size={20} />
+                            </div>
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                required
+                                className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl py-4 pl-12 pr-12 outline-none focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/50 text-white placeholder:text-zinc-600 transition-all"
+                                placeholder="••••••••"
+                                value={formData.password}
+                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
+                            >
+                                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* FORGOT PASS */}
+                    <div className="flex justify-end">
+                        <Link to="#" className="text-xs text-orange-500 font-medium hover:text-orange-400 transition-colors">
+                            Forgot Password?
+                        </Link>
+                    </div>
+
+                    {/* SUBMIT */}
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className={`w-full bg-gradient-to-r from-orange-500 to-red-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 active:scale-[0.98] transition-all duration-300
+                ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    >
+                        {loading ? "Verifying..." : "Login to Dashboard"}
+                    </button>
+                </form>
+
+                {/* FOOTER */}
+                <p className="text-center mt-8 text-sm text-gray-500">
+                    Don't have an account?{" "}
+                    <Link to="/staff/signup" className="text-white font-medium hover:underline">
+                        Contact Admin
+                    </Link>
+                </p>
             </div>
-
-            <div className="mt-6">
-                <button
-                    onClick={handleSubmit}
-                    className="w-full bg-black text-white font-bold py-3.5 rounded-xl transition-transform active:scale-[0.98]"
-                >
-                    Sign In
-                </button>
-            </div>
-
-            <p
-                className="text-xs text-gray-400 text-center mt-4 cursor-pointer hover:text-black transition-colors"
-            >
-                Forgot Password?
-            </p>
-
-            {/* Divider */}
-            <div className="flex items-center gap-4 my-6">
-                <div className="h-[1px] bg-gray-200 flex-1"></div>
-                <span className="text-gray-400 text-sm">or</span>
-                <div className="h-[1px] bg-gray-200 flex-1"></div>
-            </div>
-
-            <button
-                onClick={() => navigate("/staff/signup")}
-                className="w-full bg-gray-100 text-black font-bold py-3.5 rounded-xl active:scale-[0.98] transition-colors hover:bg-gray-200"
-            >
-                Create an account
-            </button>
-        </PageWrapper>
+        </div>
     );
 }

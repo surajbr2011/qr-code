@@ -7,6 +7,8 @@ import PasswordInput from "../components/PasswordInput";
 import PrimaryButton from "../components/PrimaryButton";
 import SecondaryButton from "../components/SecondaryButton";
 import Divider from "../components/Divider";
+import api from "../../utils/api";
+import { toast } from "react-hot-toast";
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -123,7 +125,10 @@ export default function Signup() {
     !errors.confirm;
 
   /* ---------------- SUBMIT ---------------- */
-  const handleSubmit = () => {
+  /* ---------------- SUBMIT ---------------- */
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async () => {
     const emailError = validateEmail(email.trim());
     if (emailError) {
       setErrors((prev) => ({ ...prev, email: emailError }));
@@ -131,7 +136,41 @@ export default function Signup() {
     }
 
     if (!isValid) return;
-    navigate("/profile-details");
+
+    // Check if user exists
+    setLoading(true);
+    try {
+      const { data } = await api.post('/auth/check-exists', {
+        email: email.trim(),
+        phone: phone.trim()
+      });
+
+      if (data.exists) {
+        toast.error(data.message);
+        if (data.message.includes("Email")) {
+          setErrors(prev => ({ ...prev, email: data.message }));
+        }
+        if (data.message.includes("Phone")) {
+          setErrors(prev => ({ ...prev, phone: data.message }));
+        }
+        return;
+      }
+
+      // Pass data to next step
+      navigate("/profile-details", {
+        state: {
+          email,
+          phone,
+          password
+        }
+      });
+
+    } catch (err) {
+      console.error("Check failed", err);
+      toast.error("Validation failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -186,8 +225,8 @@ export default function Signup() {
 
         <div className="mt-6">
           <PrimaryButton
-            text="Continue"
-            disabled={!isValid}
+            text={loading ? "Checking..." : "Continue"}
+            disabled={!isValid || loading}
             onClick={handleSubmit}
           />
         </div>

@@ -1,9 +1,18 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
 
 const CartContext = createContext();
 
 export function CartProvider({ children }) {
-    const [cartItems, setCartItems] = useState([]);
+    // Load cart from localStorage or empty array
+    const [cartItems, setCartItems] = useState(() => {
+        const saved = localStorage.getItem("staff_cart_v1");
+        return saved ? JSON.parse(saved) : [];
+    });
+
+    // Persistence Effect
+    useEffect(() => {
+        localStorage.setItem("staff_cart_v1", JSON.stringify(cartItems));
+    }, [cartItems]);
 
     const addToCart = (item) => {
         setCartItems((prev) => {
@@ -31,9 +40,13 @@ export function CartProvider({ children }) {
         );
     };
 
+    const clearCart = () => {
+        setCartItems([]);
+    };
+
     return (
         <CartContext.Provider
-            value={{ cartItems, addToCart, increaseQty, decreaseQty }}
+            value={{ cartItems, addToCart, increaseQty, decreaseQty, clearCart }}
         >
             {children}
         </CartContext.Provider>

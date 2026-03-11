@@ -1,19 +1,66 @@
 import { useState, useRef, useEffect } from "react";
 import PageWrapper from "../../components/PageWrapper";
 import { useNavigate } from "react-router-dom";
-import { FiChevronLeft, FiPhone, FiMic, FiSmile, FiImage, FiSend } from "react-icons/fi";
+import { FiChevronLeft, FiPhone, FiMic, FiSmile, FiImage, FiSend, FiMessageSquare } from "react-icons/fi";
+import api from "../../utils/api";
+import socket from "../../utils/socket";
+import { toast } from "react-hot-toast";
 
 export default function Support() {
   const navigate = useNavigate();
-  const [messages, setMessages] = useState([
-    { id: 1, text: "Food is not delivered", sender: "user" },
-    { id: 2, text: "Hmmm", sender: "support" },
-    { id: 3, text: "We are preparing", sender: "support" },
-    { id: 4, text: "Deliverers with in 10 mins", sender: "support" },
-  ]);
+  const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState("");
+  const [activeTicket, setActiveTicket] = useState(null);
+  const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    // Force socket reconnection to ensure we are authenticated
+    const token = localStorage.getItem("staff_token");
+    if (token) {
+      socket.auth = { token };
+      if (!socket.connected) {
+        socket.connect();
+      } else {
+        // If already connected, we might need to reconnect to update auth if it changed
+        // But simpler is to always reconnect on this page to be safe
+        socket.disconnect().connect();
+      }
+    }
+
+    fetchActiveTicket();
+  }, []);
+
+  const fetchActiveTicket = async () => {
+    try {
+      const { data } = await api.get('/support');
+      const openTicket = data.find(t => t.status !== 'Resolved') || data[data.length - 1];
+      if (openTicket) {
+        setActiveTicket(openTicket);
+        setMessages(openTicket.messages || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch tickets", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const handleMessage = (updatedTicket) => {
+      console.log("Socket Update Ticket:", updatedTicket);
+      if (activeTicket && activeTicket._id === updatedTicket._id) {
+        setMessages(updatedTicket.messages);
+      } else if (!activeTicket) {
+        setActiveTicket(updatedTicket);
+        setMessages(updatedTicket.messages);
+      }
+    };
+
+    socket.on('support:message', handleMessage);
+    return () => socket.off('support:message');
+  }, [activeTicket]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -23,25 +70,27 @@ export default function Support() {
     scrollToBottom();
   }, [messages]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (inputText.trim() === "") return;
 
-    // Add user message
-    const newMessage = {
-      id: Date.now(),
-      text: inputText,
-      sender: "support", // Based on image, right side is "support" (replies) but traditionally the user IS the one typing. 
-      // WAIT. "Food is not devliverd" (Left/Black) -> This implies the CUSTOMER is on the left?
-      // Usually "I" am on the right.
-      // If "We are preparing" is on the right, and this is the STAFF app.
-      // Then the STAFF (We) is on the Right.
-      // And the CUSTOMER is on the Left.
-      // So if I am the Staff, I am sending messages that appear on the Right.
-      // So 'sender: "support"' is correct for the current user.
-    };
+    try {
+      let ticketId = activeTicket?._id;
+      const text = inputText;
+      setInputText("");
 
-    setMessages((prev) => [...prev, newMessage]);
-    setInputText("");
+      if (!ticketId) {
+        const { data } = await api.post('/support', { description: text });
+        setActiveTicket(data);
+        setMessages(data.messages || []);
+        toast.success("Support Ticket Created");
+      } else {
+        const { data } = await api.post(`/support/${ticketId}/message`, { text, from: 'user' }); // From 'user' perspective (Staff is a user here)
+        console.log("Message Sent Response:", data);
+        setMessages(data.messages);
+      }
+    } catch (err) {
+      toast.error("Failed to send message");
+    }
   };
 
   const handleKeyDown = (e) => {
@@ -84,23 +133,34 @@ export default function Support() {
       </div>
 
       {/* MESSAGES */}
-      <div className="px-4 py-4 space-y-3 pb-32">
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex w-full ${msg.sender === "support" ? "justify-end" : "justify-start"
-              }`}
-          >
-            <div
-              className={`max-w-[75%] px-4 py-3 text-sm font-medium rounded-2xl ${msg.sender === "support"
-                ? "bg-[#E5E7EB] text-black rounded-tr-sm" // Right side
-                : "bg-black text-white rounded-tl-sm" // Left side
-                }`}
-            >
-              <p>{msg.text}</p>
-            </div>
+      <div className="px-4 py-4 space-y-3 pb-32 flex flex-col">
+        {loading ? (
+          <p className="text-center text-gray-400 mt-10">Loading chat...</p>
+        ) : messages.length === 0 ? (
+          <div className="text-center text-gray-400 mt-20 flex flex-col items-center">
+            <FiMessageSquare size={40} className="mb-2 opacity-20" />
+            <p>Need help? Message Admin.</p>
           </div>
-        ))}
+        ) : (
+          messages.map((msg, i) => {
+            const isMe = msg.from === 'user';
+            return (
+              <div
+                key={i}
+                className={`flex w-full ${isMe ? "justify-end" : "justify-start"}`}
+              >
+                <div
+                  className={`max-w-[75%] px-4 py-3 text-sm font-medium rounded-2xl ${isMe
+                    ? "bg-[#E5E7EB] text-black rounded-tr-sm" // Right side
+                    : "bg-black text-white rounded-tl-sm" // Left side
+                    }`}
+                >
+                  <p>{msg.text}</p>
+                </div>
+              </div>
+            );
+          })
+        )}
         <div ref={messagesEndRef} />
       </div>
 
@@ -124,6 +184,14 @@ export default function Support() {
           </button>
           <button onClick={handleFileClick} className="text-gray-500 hover:text-black transition-colors">
             <FiImage size={20} />
+          </button>
+
+          <button
+            onClick={handleSend}
+            disabled={!inputText.trim()}
+            className={`p-2 rounded-full transition-all ${inputText.trim() ? 'bg-black text-white shadow-md' : 'bg-gray-100 text-gray-400'}`}
+          >
+            <FiSend size={18} />
           </button>
         </div>
         {/* Hidden File Input */}

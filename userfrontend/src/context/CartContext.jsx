@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
+import api from "../utils/api";
 
 const CartContext = createContext();
 
@@ -75,29 +76,91 @@ export function CartProvider({ children }) {
     );
   };
 
-  // ✅ PLACE ORDER (MOST IMPORTANT FUNCTION)
-  const placeOrder = () => {
-    const total = cartItems.reduce(
-      (sum, item) => sum + item.price * item.qty,
-      0
-    );
+  // ✅ PLACE ORDER (REAL API CALL)
+  const placeOrder = async (orderData = {}) => {
+    try {
+      const total = cartItems.reduce(
+        (sum, item) => sum + item.price * item.qty,
+        0
+      );
 
-    const newOrder = {
-      id: "ORD-" + Math.floor(100000 + Math.random() * 900000),
-      items: cartItems,
-      total,
-      date: new Date().toLocaleString(),
-      status: "Order Received",
-    };
+      // Get user info from localStorage
+      const storedUser = localStorage.getItem("user");
+      const user = storedUser ? JSON.parse(storedUser) : null;
 
-    // Save order history
-    setOrders((prev) => [newOrder, ...prev]);
+      if (cartItems.length === 0) {
+        throw new Error("Cart is empty");
+      }
 
-    // Save last order (for Order Success page)
-    setLastOrder(newOrder);
+      const payload = {
+        items: cartItems.map(item => {
+          // Calculate individual item price with discount if applicable
+          let finalPrice = item.price;
+          if (activeOffer && activeOffer.discount) {
+            finalPrice = item.price - (item.price * (activeOffer.discount / 100));
+          }
 
-    // Clear cart after order
-    setCartItems([]);
+          return {
+            menuItem: item._id || item.id,
+            qty: item.qty,
+            price: finalPrice, // Send discounted price to backend
+            name: item.name,
+            category: item.category,
+            foodType: item.foodType || (item.veg ? "veg" : "non-veg")
+          };
+        }),
+        totalAmount: cartItems.reduce((sum, item) => {
+          let price = item.price;
+          if (activeOffer && activeOffer.discount) {
+            price = item.price - (item.price * (activeOffer.discount / 100));
+          }
+          return sum + (price * item.qty);
+        }, 0),
+        tableId: user?.tableRoom || orderData.tableId || "Unknown",
+        customerName: user?.name || orderData.customerName || "Guest",
+        offerApplied: activeOffer ? { id: activeOffer._id, discount: activeOffer.discount, title: activeOffer.title } : null,
+        ...orderData
+      };
+
+      // Call Backend
+      const { data } = await api.post("/orders", payload);
+
+      // Save order to history (using response from backend)
+      const newOrder = {
+        ...data,
+        date: new Date().toLocaleString()
+      };
+
+      setOrders((prev) => [newOrder, ...prev]);
+      setLastOrder(newOrder);
+      setCartItems([]);
+      return newOrder;
+    } catch (error) {
+      console.error("Place Order Failed:", error);
+      throw error; // Re-throw to handle in UI
+    }
+  };
+
+  // 🎟️ Active Offer (Global Item-Level Discount)
+  const [activeOffer, setActiveOffer] = useState(() => {
+    const saved = sessionStorage.getItem("active_offer");
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  useEffect(() => {
+    if (activeOffer) {
+      sessionStorage.setItem("active_offer", JSON.stringify(activeOffer));
+    } else {
+      sessionStorage.removeItem("active_offer");
+    }
+  }, [activeOffer]);
+
+  const activateOffer = (offer) => {
+    setActiveOffer(offer);
+  };
+
+  const deactivateOffer = () => {
+    setActiveOffer(null);
   };
 
   return (
@@ -106,10 +169,14 @@ export function CartProvider({ children }) {
         cartItems,
         orders,
         lastOrder,
+        activeOffer, // Exported
+        activateOffer, // Exported
+        deactivateOffer, // Exported
         addToCart,
         increaseQty,
         decreaseQty,
         placeOrder,
+        clearCart: () => setCartItems([]),
       }}
     >
       {children}

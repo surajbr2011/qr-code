@@ -3,9 +3,9 @@ import { motion } from "framer-motion";
 export default function PageWrapper({ children, className = "" }) {
     return (
         <motion.div
-            initial={{ opacity: 0, y: 15, scale: 0.95, filter: "blur(5px)" }}
-            animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
-            exit={{ opacity: 0, y: -15, scale: 0.95, filter: "blur(5px)" }}
+            initial={{ opacity: 0, y: 15, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -15, scale: 0.95 }}
             transition={{
                 type: "spring",
                 stiffness: 260,

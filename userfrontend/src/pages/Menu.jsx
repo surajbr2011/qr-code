@@ -1,366 +1,427 @@
 import React, { useState, useEffect, useRef } from "react";
-import { motion } from "framer-motion";
-import toast from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import PageWrapper from "../components/PageWrapper";
-import { useNavigate, useLocation } from "react-router-dom";
-import { FiSearch, FiHeart } from "react-icons/fi";
-import { FaHeart } from "react-icons/fa";
-import { foods } from "../data/foods";
-import { useCart } from "../context/CartContext";
 import BottomNav from "../components/BottomNav";
-import PaginationDots from "../components/PaginationDots";
+import { useCart } from "../context/CartContext";
+import { useTheme } from "../context/ThemeContext";
+import { Search, X, Bell, Zap, Shield } from "lucide-react"; // Zap/Shield for Avengers vibe
+import NotificationSheet from "../components/NotificationSheet";
+import { foods } from "../data/foods";
+import socket from "../utils/socket";
+import Banner from "../components/Banner";
 
-/* CATEGORY CONFIG */
-const CATEGORY_ICONS = [
-  {
-    name: "All",
-    image: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&q=80&w=500"
-  },
-  {
-    name: "Main Course",
-    image: "https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&q=80&w=500"
-  },
-  {
-    name: "Drinks",
-    image: "https://images.unsplash.com/photo-1544145945-f90425340c7e?auto=format&fit=crop&q=80&w=500"
-  },
-  {
-    name: "Snacks",
-    image: "https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?auto=format&fit=crop&q=80&w=500"
-  },
+/* CATEGORY DATA */
+const KNOWN_IMAGES = {
+  "Starters": "https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?auto=format&fit=crop&q=80&w=500",
+  "Main Course": "https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&q=80&w=500",
+  "Fresh Salad / Soups / Pasta": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&q=80&w=500",
+  "Sandwich & Sizzlers": "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&q=80&w=500",
+  "Breakfast": "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=500",
+  "Tea/Coffee/Milk": "https://images.unsplash.com/photo-1544145945-f90425340c7e?auto=format&fit=crop&q=80&w=500",
+  "Juice/Shake/Lassi": "https://images.unsplash.com/photo-1572490122747-3968b75cc699?auto=format&fit=crop&q=80&w=500",
+  "Dessert & Cold Stuff": "https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&q=80&w=500",
+  "Whisky, Rum, Cocktails, Beer": "https://images.unsplash.com/photo-1569529465841-dfecdab7503b?auto=format&fit=crop&q=80&w=500",
+  "Spirits & Wines": "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&q=80&w=500",
+  "Egg, Omelette, Toast": "https://images.unsplash.com/photo-1482049016688-2d3e1b311543?auto=format&fit=crop&q=80&w=500",
+  "Maggie, Pan Cake, Momos": "https://images.unsplash.com/photo-1612929633738-8fe44f7ec841?auto=format&fit=crop&q=80&w=500",
+};
+
+// 1. Get unique categories from data
+const uniqueCats = [...new Set(foods.map(f => f.category?.trim()))].filter(Boolean);
+
+// 2. Define strict order
+const ORDER = [
+  "Starters", "Main Course", "Fresh Salad / Soups / Pasta", "Sandwich & Sizzlers",
+  "Maggie, Pan Cake, Momos", "Breakfast", "Egg, Omelette, Toast", "Tea/Coffee/Milk",
+  "Juice/Shake/Lassi", "Dessert & Cold Stuff", "Whisky, Rum, Cocktails, Beer", "Spirits & Wines"
 ];
 
-/* VEG TOGGLE STATES */
-const VEG_STATES = ["veg", "all", "nonveg"];
-
-/* ANIMATION VARIANTS */
-const containerVariants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1
-    }
+const CATEGORIES = [];
+ORDER.forEach(name => {
+  if (uniqueCats.includes(name)) {
+    CATEGORIES.push({ name, image: KNOWN_IMAGES[name] || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=500" });
   }
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0 }
-};
+});
+uniqueCats.forEach(name => {
+  if (!CATEGORIES.find(c => c.name === name)) {
+    CATEGORIES.push({ name, image: KNOWN_IMAGES[name] || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=500" });
+  }
+});
 
 export default function Menu() {
   const navigate = useNavigate();
-  const { cartItems, addToCart, increaseQty, decreaseQty } = useCart();
+  const { cartItems, addToCart, increaseQty, decreaseQty, activeOffer } = useCart();
+  const { isAvengerMode, toggleTheme, theme } = useTheme();
 
-  const location = useLocation();
-  const [activeCategory, setActiveCategory] = useState(
-    location.state?.category || "All"
-  );
-  const [search, setSearch] = useState("");
-  const [favourites, setFavourites] = useState([]);
-  const [pageIndex, setPageIndex] = useState(0);
+  const totalAmount = cartItems.reduce((sum, i) => {
+    let price = i.price;
+    if (activeOffer && activeOffer.discount) {
+      price = i.price - (i.price * (activeOffer.discount / 100));
+    }
+    return sum + (price * i.qty);
+  }, 0);
 
-  const [vegModeIndex, setVegModeIndex] = useState(1);
-  const vegMode = VEG_STATES[vegModeIndex];
+  // --- STATE ---
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterType, setFilterType] = useState("All"); // All | Veg | Non-Veg
 
-  const handleVegToggle = () => {
-    setVegModeIndex((prev) => (prev + 1) % VEG_STATES.length);
-  };
-
-  const vegLabel =
-    vegMode === "veg" ? "Veg Mode" : vegMode === "nonveg" ? "Non-Veg" : "All";
-
-  const vegBg =
-    vegMode === "veg"
-      ? "bg-[#00A86B]"
-      : vegMode === "nonveg"
-        ? "bg-red-500"
-        : "bg-gray-300";
-
-  const vegThumb =
-    vegMode === "veg"
-      ? "left-1"
-      : vegMode === "all"
-        ? "left-[14px]"
-        : "left-6";
-
-  /* FILTER */
+  // --- FILTER LOGIC ---
   const filteredFoods = foods.filter((food) => {
-    const categoryMatch =
-      activeCategory === "All" || food.category === activeCategory;
+    const matchesSearch = food.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      food.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    let matchesType = true;
+    if (filterType === "Veg") matchesType = food.veg === true;
+    if (filterType === "Non-Veg") matchesType = food.veg === false;
 
-    const vegMatch =
-      vegMode === "all"
-        ? true
-        : vegMode === "veg"
-          ? food.veg === true
-          : food.veg === false;
-
-    const searchMatch =
-      food.name.toLowerCase().includes(search.toLowerCase()) ||
-      food.description.toLowerCase().includes(search.toLowerCase());
-
-    return categoryMatch && vegMatch && searchMatch;
+    return matchesSearch && matchesType;
   });
 
-  const totalAmount = cartItems.reduce(
-    (sum, i) => sum + i.price * i.qty,
-    0
-  );
+  const isSearching = searchTerm.length > 0;
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.08 }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, scale: 0.8, y: 20 },
+    show: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
+  };
+
+  const [showNotif, setShowNotif] = useState(false);
+  const [hasNewOffer, setHasNewOffer] = useState(false);
+
+  useEffect(() => {
+    const handleNewOffer = (data) => {
+      setHasNewOffer(true);
+      try { new Audio("/sounds/notification.mp3").play(); } catch (e) { }
+    };
+    socket.on("offer:new", handleNewOffer);
+    return () => socket.off("offer:new", handleNewOffer);
+  }, []);
+
+
 
   return (
     <>
-      <PageWrapper className="pb-40 bg-white min-h-screen font-sans max-w-[430px] mx-auto">
+      <NotificationSheet
+        open={showNotif}
+        onClose={() => { setShowNotif(false); setHasNewOffer(false); }}
+      />
 
-        {/* SEARCH + VEG TOGGLE */}
-        <div className="px-4 pt-4 flex items-center gap-3">
-          <div className="flex-1 flex items-center bg-[#F3F4F6] rounded-full px-4 py-2.5">
-            <FiSearch className="text-gray-400 text-lg" />
-            <input
-              placeholder="Search dishes"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="bg-transparent outline-none text-sm ml-2 w-full"
-            />
-          </div>
+      <PageWrapper className={`pb-40 min-h-screen font-sans max-w-[430px] mx-auto transition-colors duration-500 ${theme.bg}`}>
 
-          <div className="flex flex-col items-center">
-            <span className="text-[10px]">{vegLabel}</span>
-            <button
-              onClick={handleVegToggle}
-              className={`w-11 h-6 rounded-full relative transition ${vegBg}`}
-            >
-              <span
-                className={`absolute top-[3px] w-4 h-4 bg-white rounded-full transition ${vegThumb}`}
+        {/* HEADER */}
+        <div className={`px-4 pt-4 pb-4 sticky top-0 z-20 backdrop-blur-md transition-all duration-500 ${theme.headerBg} border-b ${theme.border}`}>
+
+          <div className="flex items-center gap-2 mb-2">
+
+            <div className={`${theme.searchBg} transition-colors duration-300 rounded-2xl px-3 py-2.5 flex items-center flex-grow ring-1 ring-transparent focus-within:ring-2 ${isAvengerMode ? 'focus-within:ring-red-500/50' : 'focus-within:ring-orange-500/50'}`}>
+              <Search size={18} className={`${theme.textSec} mr-2 shrink-0`} />
+              <input
+                placeholder="Search dishes..."
+                className={`bg-transparent text-sm w-full outline-none ${theme.inputColor} placeholder:text-gray-500`}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
               />
-            </button>
-          </div>
-        </div>
-
-        {/* CATEGORY ROW */}
-        <div className="px-4 mt-4">
-          <div
-            className="flex gap-4 overflow-x-auto scrollbar-hide"
-            onScroll={(e) => {
-              const index = Math.round(
-                e.target.scrollLeft / e.target.clientWidth
-              );
-              setPageIndex(index);
-            }}
-          >
-            {CATEGORY_ICONS.map((cat) => (
-              <button
-                key={cat.name}
-                onClick={() => setActiveCategory(cat.name)}
-                className="flex flex-col items-center min-w-[72px]"
-              >
-                <div
-                  className={`w-[72px] h-[72px] rounded-full overflow-hidden border-[3px] transition-all ${activeCategory === cat.name
-                    ? "border-orange-500 shadow-md"
-                    : "border-white"
-                    }`}
-                >
-                  <img
-                    src={cat.image}
-                    alt={cat.name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-
-                <span
-                  className={`text-xs mt-1 ${activeCategory === cat.name
-                    ? "text-orange-500 font-medium"
-                    : "text-gray-600"
-                    }`}
-                >
-                  {cat.name}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          {/* ✅ HIDE DOTS WHEN ALL IS SELECTED */}
-          {activeCategory !== "All" && (
-            <PaginationDots
-              total={CATEGORY_ICONS.length}
-              activeIndex={pageIndex}
-            />
-          )}
-        </div>
-
-        {/* FOOD LIST */}
-        <div className="px-4 mt-4 space-y-6">
-          {activeCategory === "All" && !search ? (
-            /* GROUPED VIEW */
-            CATEGORY_ICONS.filter(c => c.name !== "All").map((cat) => {
-              const catItems = filteredFoods.filter(f => f.category === cat.name);
-              if (catItems.length === 0) return null;
-
-              return (
-                <div key={cat.name}>
-                  <h2 className="font-bold text-lg mb-3 text-black">{cat.name}</h2>
-                  <motion.div
-                    className="space-y-4"
-                    variants={containerVariants}
-                    initial="hidden"
-                    whileInView="show"
-                    viewport={{ once: true, margin: "-50px" }}
-                  >
-                    {catItems.map((food) => (
-                      <FoodItemCard
-                        key={food.id}
-                        food={food}
-                        cartItems={cartItems}
-                        addToCart={addToCart}
-                        increaseQty={increaseQty}
-                        decreaseQty={decreaseQty}
-                        favourites={favourites}
-                        setFavourites={setFavourites}
-                        variants={itemVariants}
-                      />
-                    ))}
-                  </motion.div>
-                </div>
-              );
-            })
-          ) : (
-            /* SINGLE LIST VIEW (Filtered or Specific Category) */
-            <motion.div
-              className="space-y-4"
-              variants={containerVariants}
-              initial="hidden"
-              whileInView="show"
-              viewport={{ once: true, margin: "-50px" }}
-            >
-              {filteredFoods.map((food) => (
-                <FoodItemCard
-                  key={food.id}
-                  food={food}
-                  cartItems={cartItems}
-                  addToCart={addToCart}
-                  increaseQty={increaseQty}
-                  decreaseQty={decreaseQty}
-                  favourites={favourites}
-                  setFavourites={setFavourites}
-                  variants={itemVariants}
-                />
-              ))}
-              {filteredFoods.length === 0 && (
-                <div className="text-center py-10 text-gray-400">No items found</div>
+              {searchTerm && (
+                <button onClick={() => setSearchTerm("")} className={`${theme.textSec} p-1 hover:text-red-500`}>
+                  <X size={16} />
+                </button>
               )}
-            </motion.div>
-          )}
-        </div>
+            </div>
 
-        <BottomNav />
-      </PageWrapper>
-
-      {/* VIEW CART - Outside PageWrapper to stay Fixed */}
-      {
-        cartItems.length > 0 && (
-          <div className="fixed bottom-16 left-1/2 -translate-x-1/2 w-full max-w-[430px] px-4 z-50">
+            {/* THEME TOGGLE */}
             <motion.button
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              onClick={() => navigate("/cart")}
-              className="w-full h-14 bg-gradient-to-r from-orange-500 to-orange-600
-                       text-white rounded-2xl flex items-center justify-between
-                       px-5 font-semibold shadow-2xl transition-transform active:scale-[0.98]"
+              whileTap={{ scale: 0.9, rotate: 180 }}
+              onClick={toggleTheme}
+              className={`p-2.5 rounded-2xl transition-all duration-300 ${isAvengerMode ? 'bg-slate-800 text-yellow-400 border border-yellow-500/30' : 'bg-gray-100 text-gray-600'}`}
             >
-              <span>🛒 View Cart ({cartItems.length})</span>
-              <span className="text-lg font-bold">₹{totalAmount}</span>
+              {isAvengerMode ? <Zap size={20} fill="currentColor" /> : <Zap size={20} />}
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowNotif(true)}
+              className={`p-2.5 rounded-2xl relative transition-all duration-300 ${isAvengerMode ? 'bg-slate-800 text-red-400 border border-red-500/20' : 'bg-gray-100 text-gray-600'}`}
+            >
+              <Bell size={20} />
+              {hasNewOffer && (
+                <span className="absolute top-2 right-2.5 w-2.5 h-2.5 bg-red-600 rounded-full border-2 border-[#0f172a] animate-ping" />
+              )}
             </motion.button>
           </div>
-        )
-      }
+
+          {/* 3-Way Filter Toggle */}
+          <div className={`flex mt-4 p-1.5 rounded-2xl ${isAvengerMode ? 'bg-slate-800 border border-slate-700' : 'bg-gray-100'}`}>
+            {["All", "Veg", "Non-Veg"].map((type) => {
+              const isActive = filterType === type;
+              return (
+                <button
+                  key={type}
+                  onClick={() => setFilterType(type)}
+                  className={`relative flex-1 py-2 text-xs font-bold rounded-xl transition-colors z-10 ${isActive ? 'text-white' : (isAvengerMode ? 'text-slate-400 hover:text-slate-200' : 'text-gray-500 hover:text-gray-900')}`}
+                >
+                  {isActive && (
+                    <motion.span
+                      layoutId="activeFilter"
+                      className={`absolute inset-0 rounded-xl -z-10 ${isAvengerMode
+                        ? (type === 'Veg' ? 'bg-green-600 shadow-lg shadow-green-900/40' : type === 'Non-Veg' ? 'bg-red-600 shadow-lg shadow-red-900/40' : 'bg-slate-700 border border-slate-600 shadow-lg')
+                        : (type === 'Veg' ? 'bg-green-500' : type === 'Non-Veg' ? 'bg-red-500' : 'bg-orange-500')
+                        }`}
+                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    />
+                  )}
+                  <span className="relative z-10">{type}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* --- VIEW SWITCHER --- */}
+        <AnimatePresence mode="wait">
+          {isSearching ? (
+            /* === SEARCH RESULTS VIEW === */
+            <motion.div
+              key="search-results"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="px-4 mt-6 space-y-4 min-h-[50vh]"
+            >
+              <h2 className={`font-bold text-base flex justify-between items-center ${theme.text}`}>
+                <span>Results ({filteredFoods.length})</span>
+                <span className={`text-xs font-normal ${theme.textSec}`}>Filtering: {filterType}</span>
+              </h2>
+              {filteredFoods.length > 0 ? (
+                filteredFoods.map(food => (
+                  <FoodItemCard
+                    key={food.id}
+                    food={food}
+                    cartItems={cartItems}
+                    addToCart={addToCart}
+                    increaseQty={increaseQty}
+                    decreaseQty={decreaseQty}
+                    isAvengerMode={isAvengerMode}
+                  />
+                ))
+              ) : (
+                <div className={`text-center py-10 ${theme.textSec}`}>
+                  <p>No dishes found matching "{searchTerm}"</p>
+                </div>
+              )}
+            </motion.div>
+          ) : (
+            /* === MAIN MENU VIEW === */
+            <motion.div
+              key="main-menu"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              {/* HERO BANNER */}
+              <div className="pt-2">
+                <Banner />
+              </div>
+
+              {/* CATEGORY GRID */}
+              <div className="px-4 mt-8">
+                <h2 className={`font-bold text-lg mb-5 px-1 flex items-center gap-2 ${theme.text}`}>
+                  <span className={isAvengerMode ? "text-red-500" : "text-orange-500"}>●</span> Main Menu
+                </h2>
+                <motion.div
+                  className="grid grid-cols-4 gap-x-3 gap-y-7"
+                  variants={containerVariants}
+                  initial="hidden"
+                  animate="show"
+                >
+                  {CATEGORIES.filter(cat => {
+                    if (filterType === "All") return true;
+                    return foods.some(f => (f.category || "") === cat.name && (filterType === "Veg" ? f.veg : filterType === "Non-Veg" ? !f.veg : true));
+                  }).map(cat => (
+                    <motion.button
+                      key={cat.name}
+                      variants={itemVariants}
+                      whileHover={{ scale: 1.05, y: -5 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => navigate(`/menu/${encodeURIComponent(cat.name)}`)}
+                      className="flex flex-col items-center gap-3 group w-full"
+                    >
+                      <div className={`w-[72px] h-[72px] sm:w-[80px] sm:h-[80px] rounded-full overflow-hidden shadow-lg p-0.5 relative
+                        ${isAvengerMode
+                          ? "bg-gradient-to-br from-red-500 to-yellow-500 shadow-red-500/20"
+                          : "bg-white border text-gray-100"
+                        }
+                    `}>
+                        <div className="w-full h-full rounded-full overflow-hidden border-2 border-white/20">
+                          <img src={cat.image} className="w-full h-full object-cover" alt={cat.name} />
+                        </div>
+                      </div>
+                      <span className={`text-[10px] sm:text-xs font-bold text-center leading-tight px-0.5 line-clamp-2 min-h-[2.5em] w-full break-words ${theme.textSec} group-hover:${theme.text} transition-colors`}>
+                        {cat.name}
+                      </span>
+                    </motion.button>
+                  ))}
+                </motion.div>
+              </div>
+
+              {/* ALL ITEMS LIST */}
+              <div className="px-4 mt-10 pb-4 space-y-4">
+                <h2 className={`font-bold text-lg px-1 flex items-center gap-2 ${theme.text}`}>
+                  <span className={isAvengerMode ? "text-red-500" : "text-orange-500"}>●</span> All Dishes
+                </h2>
+                <div className="space-y-4">
+                  {filteredFoods.map(food => (
+                    <FoodItemCard
+                      key={food.id}
+                      food={food}
+                      cartItems={cartItems}
+                      addToCart={addToCart}
+                      increaseQty={increaseQty}
+                      decreaseQty={decreaseQty}
+                      isAvengerMode={isAvengerMode}
+                    />
+                  ))}
+                  {filteredFoods.length === 0 && (
+                    <p className={`text-center py-6 ${theme.textSec}`}>No dishes found with current filter.</p>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+      </PageWrapper>
+
+      {/* FOOTER */}
+      <BottomNav />
+      {/* CART FLOAT */}
+      {cartItems.length > 0 && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 w-full max-w-[380px] px-4 z-50">
+          <motion.button
+            initial={{ y: 50, opacity: 0, scale: 0.9 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            whileTap={{ scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+            onClick={() => navigate("/cart")}
+            className={`w-full h-16 rounded-2xl flex items-center justify-between px-6 shadow-2xl relative overflow-hidden group
+                ${isAvengerMode
+                ? "bg-gradient-to-r from-red-600 via-red-700 to-slate-900 border border-red-500/30 shadow-red-500/30"
+                : "bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 border border-white/20"
+              }
+            `}
+          >
+            {/* Shimmer */}
+            <motion.div
+              initial={{ x: "-100%" }}
+              animate={{ x: "100%" }}
+              transition={{ repeat: Infinity, duration: 2, repeatDelay: 3, ease: "linear" }}
+              className="absolute inset-0 bg-white/20 -skew-x-12 w-1/2 blur-2xl"
+            />
+
+            <div className="flex items-center gap-3 relative z-10">
+              <span className="text-2xl">🛒</span>
+              <div className="flex flex-col items-start leading-tight">
+                <span className="text-[10px] font-bold text-white/80 uppercase tracking-widest">
+                  {cartItems.length} ITEMS ADDED
+                </span>
+                <span className="font-extrabold text-lg text-white drop-shadow-sm">View Cart</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 bg-black/20 px-4 py-2 rounded-xl backdrop-blur-md border border-white/10 shadow-lg relative z-10">
+              <span className="text-xl font-bold text-white tracking-tight">₹{totalAmount}</span>
+              <motion.span animate={{ x: [0, 5, 0] }} transition={{ repeat: Infinity, duration: 1.5 }} className="text-white">➜</motion.span>
+            </div>
+          </motion.button>
+        </div>
+      )}
     </>
   );
 }
 
-function FoodItemCard({ food, cartItems, addToCart, increaseQty, decreaseQty, favourites, setFavourites }) {
+// Reusable Search Result Card
+function FoodItemCard({ food, cartItems, addToCart, increaseQty, decreaseQty, isAvengerMode }) {
+  const { activeOffer } = useCart();
   const cartItem = cartItems.find((i) => i.id === food.id);
-  const fav = favourites.includes(food.id);
+  const theme = isAvengerMode ? {
+    card: "bg-slate-800 border-slate-700 shadow-lg shadow-black/20",
+    text: "text-slate-100",
+    subText: "text-slate-400",
+    border: "border-slate-700",
+    btnBg: "bg-slate-700 text-red-400 border-slate-600",
+    counterBg: "bg-red-600 text-white shadow-red-500/30"
+  } : {
+    card: "bg-white border-gray-100 shadow-sm",
+    text: "text-gray-900",
+    subText: "text-gray-500",
+    border: "border-gray-100",
+    btnBg: "bg-orange-50 text-orange-600 border-orange-100",
+    counterBg: "bg-orange-500 text-white"
+  };
+
+  let displayPrice = food.price;
+  let originalPrice = null;
+  if (activeOffer && activeOffer.discount) {
+    originalPrice = food.price;
+    displayPrice = food.price - (food.price * (activeOffer.discount / 100));
+  }
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)" }}
-      whileTap={{ scale: 0.98 }}
-      className="bg-white rounded-2xl p-3 flex gap-3 shadow-sm transition-all duration-300 cursor-pointer"
+      layout
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className={`${theme.card} rounded-2xl p-3 flex gap-3 border relative overflow-hidden`}
     >
-      {/* Image Container */}
-      <div className="w-24 h-24 flex-shrink-0 bg-gray-100 rounded-xl overflow-hidden">
+      {activeOffer && (
+        <div className="absolute top-0 right-0 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-bl-lg z-10 shadow-md">
+          {activeOffer.discount}% OFF
+        </div>
+      )}
+
+      <div className="w-24 h-24 flex-shrink-0 bg-gray-900/5 rounded-xl overflow-hidden relative">
         <img
-          src={food.image}
+          src={food.image || "https://placehold.co/200?text=No+Image"}
+          onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/200?text=No+Image"; }}
           className="w-full h-full object-cover"
           alt={food.name}
         />
       </div>
-
-      <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <div className="flex justify-between items-start">
-          <h3 className="text-[15px] font-bold text-gray-900 leading-tight pr-2">{food.name}</h3>
-          <button
-            onClick={() =>
-              setFavourites((f) =>
-                f.includes(food.id)
-                  ? f.filter((x) => x !== food.id)
-                  : [...f, food.id]
-              )
-            }
-            className="mt-0.5"
-          >
-            {fav ? (
-              <FaHeart className="text-[#F97316] text-sm" />
-            ) : (
-              <FiHeart className="text-gray-400 text-sm" />
-            )}
-          </button>
+      <div className="flex-1 flex flex-col justify-between">
+        <div>
+          <h3 className={`text-sm font-bold leading-tight ${theme.text}`}>{food.name}</h3>
+          <p className={`text-[10px] mt-1 line-clamp-1 ${theme.subText}`}>{food.description || food.subCategory}</p>
         </div>
-
-        {/* Description */}
-        <p className="text-[10px] text-gray-500 mt-1 line-clamp-2 leading-relaxed">
-          {food.description}
-        </p>
-
-        {/* Footer: Price & Action */}
-        <div className="mt-auto pt-2">
-          <div className="flex justify-end mb-1">
-            <span className="text-[10px] font-bold text-gray-500">12 Min</span>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <span className="text-lg font-bold text-black">₹{food.price}</span>
-
-            {!cartItem ? (
-              <button
-                onClick={() => addToCart(food)}
-                className="bg-gray-400 text-white text-[10px] font-bold px-6 py-1.5 rounded-full flex items-center hover:bg-gray-500 transition-all active:scale-95"
-              >
-                ADD +
-              </button>
-            ) : (
-              <div className="flex items-center bg-[#F97316] text-white rounded-lg h-[26px] px-2 shadow-sm">
-                <button
-                  onClick={() => decreaseQty(food.id)}
-                  className="w-5 h-full flex items-center justify-center font-bold text-lg pb-1"
-                >
-                  −
-                </button>
-                <span className="px-2 text-xs font-bold">{cartItem.qty}</span>
-                <button
-                  onClick={() => increaseQty(food.id)}
-                  className="w-5 h-full flex items-center justify-center font-bold text-lg pb-1"
-                >
-                  +
-                </button>
-              </div>
+        <div className="flex justify-between items-center mt-2">
+          <div className="flex flex-col">
+            {originalPrice && (
+              <span className="text-xs text-gray-500 line-through decoration-red-500">₹{originalPrice}</span>
             )}
+            <span className={`text-base font-bold ${isAvengerMode ? 'text-red-500 drop-shadow-sm' : 'text-gray-900'}`}>₹{displayPrice}</span>
           </div>
+
+          {!cartItem ? (
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => addToCart(food)}
+              className={`${theme.btnBg} border text-xs font-bold px-4 py-1.5 rounded-lg active:scale-95 transition-colors`}
+            >
+              ADD
+            </motion.button>
+          ) : (
+            <div className={`flex items-center ${theme.counterBg} rounded-lg h-[28px] px-2 shadow-sm`}>
+              <button onClick={() => decreaseQty(food.id)} className="w-6 h-full flex items-center justify-center font-bold pb-0.5">-</button>
+              <span className="px-1 text-xs font-bold min-w-[16px] text-center">{cartItem.qty}</span>
+              <button onClick={() => increaseQty(food.id)} className="w-6 h-full flex items-center justify-center font-bold pb-0.5">+</button>
+            </div>
+          )}
         </div>
       </div>
     </motion.div>
