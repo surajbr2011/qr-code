@@ -1,0 +1,9 @@
+{
+    "ignore": [
+        "*.log",
+        "*.txt",
+        "node_modules/*",
+        "uploads/*"
+    ],
+    "delay": "2500"
+}

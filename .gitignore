@@ -108,4 +108,3 @@ Thumbs.db
 .dist/
 *.tmp
 debug_output*.txt
-*.json
