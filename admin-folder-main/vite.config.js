@@ -7,4 +7,10 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  test: {
+    globals: true,
+    environment: 'happy-dom',
+    setupFiles: './src/tests/setup.js',
+    css: false,
+  },
 })

@@ -43,6 +43,7 @@ export default function QrCodeManagement() {
     console.log("Generate New Clicked. ID:", newId, "Tab:", tab);
     if (!newId.trim()) {
       console.warn("New ID is empty");
+      toast.error("Please enter a table or room number");
       return;
     }
     try {
@@ -87,7 +88,7 @@ export default function QrCodeManagement() {
         fetchQRCodes();
       }
     } catch (err) {
-      toast.error("Failed to delete");
+      toast.error(err.response?.data?.message || "Failed to delete");
     }
   };
 

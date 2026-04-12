@@ -1,19 +1,26 @@
+import { Bell, Search, Menu, LogOut, ChevronDown, X } from "lucide-react";
 import { Bell, Search, Menu } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useState, useRef, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import socket from "../../utils/socket";
 import toast from "react-hot-toast";
+import NotificationsModal from "../modals/NotificationsModal";
+import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "../../context/AuthContext";
 import NotificationsModal from "../modals/NotificationsModal"; // Assuming correct path
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function Header({ onSearch, onToggleSidebar }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { logout, user } = useAuth();
   const isDashboard = location.pathname === "/dashboard";
   const [showQuickBill, setShowQuickBill] = useState(false);
   const qbContainerRef = useRef(null);
   const searchContainerRef = useRef(null);
+  const profileRef = useRef(null);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   // SEARCH STATE
   const [query, setQuery] = useState("");
@@ -45,7 +52,7 @@ export default function Header({ onSearch, onToggleSidebar }) {
   ];
 
   useEffect(() => {
-    const API_URL = import.meta.env.VITE_API_URL || "https://qr-code-1-1aya.onrender.com/api";
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
 
     // Update Token & Connect
     const token = localStorage.getItem("admin_token");
@@ -108,7 +115,7 @@ export default function Header({ onSearch, onToggleSidebar }) {
 
   const markAsRead = async (id) => {
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "https://qr-code-1-1aya.onrender.com/api";
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
       await fetch(`${API_URL}/notifications/${id}/read`, { method: 'PUT' });
       setNotifications(prev => prev.map(n => n._id === id ? { ...n, isRead: true } : n));
     } catch (err) {
@@ -118,7 +125,7 @@ export default function Header({ onSearch, onToggleSidebar }) {
 
   const deleteNotification = async (id) => {
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "https://qr-code-1-1aya.onrender.com/api";
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
       await fetch(`${API_URL}/notifications/${id}`, { method: 'DELETE' });
       setNotifications(prev => prev.filter(n => n._id !== id));
       toast.success("Notification deleted");
@@ -131,7 +138,7 @@ export default function Header({ onSearch, onToggleSidebar }) {
   const clearAllNotifications = async () => {
     try {
       if (!window.confirm("Are you sure you want to clear all notifications?")) return;
-      const API_URL = import.meta.env.VITE_API_URL || "https://qr-code-1-1aya.onrender.com/api";
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
       await fetch(`${API_URL}/notifications`, { method: 'DELETE' });
       setNotifications([]);
       toast.success("All notifications cleared");
@@ -150,10 +157,13 @@ export default function Header({ onSearch, onToggleSidebar }) {
       if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
         setShowSearchDropdown(false);
       }
+      if (profileRef.current && !profileRef.current.contains(e.target)) {
+        setShowProfileMenu(false);
+      }
     }
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
-  }, []); // Logic for search dropdown click outside
+  }, []);
 
   const handleSearch = (val) => {
     setQuery(val);
@@ -212,7 +222,7 @@ export default function Header({ onSearch, onToggleSidebar }) {
               className="
               w-full
               h-9
-              pl-10 pr-4
+              pl-10 pr-8
               rounded-full
               bg-[#F3F4F6]
               text-sm
@@ -222,6 +232,15 @@ export default function Header({ onSearch, onToggleSidebar }) {
               transition-all
             "
             />
+            {query && (
+              <button
+                onClick={() => handleSearch("")}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 text-gray-400 hover:text-black transition-colors"
+                title="Clear search"
+              >
+                <X size={15} />
+              </button>
+            )}
 
             {/* Search Dropdown */}
             <AnimatePresence>
@@ -320,19 +339,58 @@ export default function Header({ onSearch, onToggleSidebar }) {
           >
             <Bell size={20} className="text-[var(--text-gray)]" />
             {notifications.some(n => !n.isRead) && (
-              <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white"></span>
+              <span className="absolute top-0 right-0 inline-flex items-center justify-center min-w-[16px] h-4 px-1 text-[10px] font-bold leading-none text-white bg-red-500 rounded-full ring-2 ring-white">
+                {notifications.filter(n => !n.isRead).length > 9 ? '9+' : notifications.filter(n => !n.isRead).length}
+              </span>
             )}
           </button>
 
-          <div className="flex items-center gap-2">
-            <img
-              src="https://i.pravatar.cc/40"
-              alt="admin"
-              className="w-8 h-8 rounded-full"
-            />
-            <span className="text-sm font-medium text-[var(--text-dark)]">
-              Admin
-            </span>
+          {/* Admin Profile + Logout Dropdown (BUG-032) */}
+          <div className="relative" ref={profileRef}>
+            <button
+              onClick={() => setShowProfileMenu((s) => !s)}
+              className="flex items-center gap-2 p-1 rounded-lg hover:bg-gray-100 transition-colors"
+              aria-label="Profile menu"
+            >
+              <img
+                src="https://i.pravatar.cc/40"
+                alt="admin"
+                className="w-8 h-8 rounded-full"
+              />
+              <span className="text-sm font-medium text-[var(--text-dark)] hidden md:inline">
+                {user?.name || 'Admin'}
+              </span>
+              <ChevronDown size={14} className={`text-gray-400 transition-transform ${showProfileMenu ? 'rotate-180' : ''}`} />
+            </button>
+
+            <AnimatePresence>
+              {showProfileMenu && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: -5 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -5 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute right-0 mt-2 w-44 bg-white rounded-xl shadow-xl ring-1 ring-black/5 z-50 py-1 overflow-hidden border border-gray-100"
+                >
+                  <div className="px-4 py-2 border-b border-gray-100">
+                    <p className="text-xs font-bold text-gray-800 truncate">{user?.name || 'Admin'}</p>
+                    <p className="text-[10px] text-gray-400 truncate">{user?.email || ''}</p>
+                  </div>
+                  <button
+                    id="logout-btn"
+                    onClick={() => {
+                      logout();
+                      navigate('/login');
+                      toast.success('Logged out successfully');
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    <LogOut size={16} />
+                    <span className="font-medium">Logout</span>
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </header>

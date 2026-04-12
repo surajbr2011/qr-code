@@ -167,7 +167,8 @@ export default function Receipt() {
       setPaymentVerified(true);
       setPaymentMethod(method);
     } catch (err) {
-      toast.error(err.message || "Payment Failed");
+      if (typeof loadingToast !== "undefined") toast.dismiss(loadingToast);
+      toast.error(err.response?.data?.message || err.message || "Payment Failed");
     }
   };
 
@@ -248,7 +249,7 @@ export default function Receipt() {
       rzp.open();
 
     } catch (err) {
-      toast.dismiss();
+      toast.dismiss(); // Fallback dismisses all just in case
       console.error("Payment Start Error:", err);
       toast.error(err.response?.data?.message || err.message || "Failed to start payment");
     }

@@ -1,3 +1,4 @@
+import { Suspense, lazy, useEffect } from "react";
 import { Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Loading from "./components/ui/Loading";
@@ -24,10 +25,41 @@ const ProfileView = lazy(() => import("./pages/ProfileView"));
 
 const OrderManagement = lazy(() => import("./pages/OrderManagement"));
 const QrCodeManagement = lazy(() => import("./pages/QrCodeManagement"));
+import { useLocation } from "react-router-dom";
+
+function TitleUpdater() {
+  const location = useLocation();
+
+  useEffect(() => {
+    const titles = {
+      "/dashboard": "Dashboard",
+      "/tables": "Tables",
+      "/menu": "Menu",
+      "/receipt": "Receipt",
+      "/expenses": "Expense Tracking",
+      "/menu-management": "Menu Management",
+      "/staff": "Staff Management",
+      "/reports": "Reports",
+      "/qr": "QR Code Management",
+      "/support": "Support",
+      "/orders": "Order Tracking",
+      "/profile": "Profile",
+      "/general": "General Settings",
+      "/order": "Order Management",
+      "/login": "Login"
+    };
+
+    const pageName = titles[location.pathname] || "Hotel Dashboard";
+    document.title = `${pageName} | Hotel Dashboard`;
+  }, [location]);
+
+  return null;
+}
 
 export default function App() {
   return (
     <BrowserRouter>
+      <TitleUpdater />
       <AuthProvider>
         <HotelProvider>
           <CartProvider>

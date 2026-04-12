@@ -3,6 +3,10 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { useHotel } from "../../context/HotelContext";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "../../context/AuthContext";
+import { LogOut } from "lucide-react";
+import toast from "react-hot-toast";
+import { useLocation } from "react-router-dom";
 
 const mainMenu = [
   { label: "Profile", icon: "mdi:account-badge-outline", path: "/profile" },
@@ -22,7 +26,9 @@ const mainMenu = [
 export default function Sidebar({ isOpen, onClose }) {
   const [qbModalOpen, setQbModalOpen] = useState(false);
   const navigate = useNavigate();
-  const { hotelLogo } = useHotel();
+  const location = useLocation();
+  const { hotelLogo, hotelProfile } = useHotel();
+  const { logout } = useAuth();
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -76,18 +82,19 @@ export default function Sidebar({ isOpen, onClose }) {
               <Icon icon="mdi:office-building" width={22} className="text-blue-600" />
             )}
           </div>
-          <span className="text-sm font-bold text-black">Hotel Name</span>
+          <span className="text-sm font-bold text-black line-clamp-1 break-all pr-2">{hotelProfile?.name || "Restaurant POS"}</span>
         </div>
 
         {/* MAIN MENU */}
         <nav className="flex-1 px-3 flex flex-col gap-4 overflow-y-auto no-scrollbar py-4">
-          {mainMenu.map((item) =>
-            item.label === "Quick Bill" ? (
+          {mainMenu.map((item) => {
+            const isQbActive = item.label === "Quick Bill" && (location.pathname === "/tables" || location.pathname === "/menu");
+            return item.label === "Quick Bill" ? (
               <motion.button
                 key={item.label}
                 whileTap={{ scale: 0.96 }}
                 onClick={openQuickBill}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200 ease-in-out text-black font-bold hover:bg-gray-100 hover:translate-x-1"
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200 ease-in-out ${isQbActive ? "bg-blue-50 text-blue-600 font-bold shadow-sm" : "text-black font-bold hover:bg-gray-100 hover:translate-x-1"}`}
               >
                 <Icon icon={item.icon} width={22} className="shrink-0" />
                 <span>{item.label}</span>
@@ -113,9 +120,26 @@ export default function Sidebar({ isOpen, onClose }) {
                   </motion.div>
                 )}
               </NavLink>
-            )
-          )}
+            );
+          })}
         </nav>
+
+        {/* LOGOUT BUTTON (BUG-032) */}
+        <div className="px-3 pb-2">
+          <button
+            id="sidebar-logout-btn"
+            onClick={() => {
+              logout();
+              navigate('/login');
+              toast.success('Logged out successfully');
+              onClose && onClose();
+            }}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold text-red-500 hover:bg-red-50 transition-all duration-200"
+          >
+            <LogOut size={20} className="shrink-0" />
+            <span>Logout</span>
+          </button>
+        </div>
       </motion.aside>
 
       {/* QUICK BILL MODAL / SHEET */}

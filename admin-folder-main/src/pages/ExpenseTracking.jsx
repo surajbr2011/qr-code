@@ -33,7 +33,7 @@ export default function ExpenseTracking() {
       setLoading(false);
     } catch (err) {
       console.error(err);
-      toast.error("Failed to fetch expenses");
+      toast.error(err.response?.data?.message || err.message || "Failed to fetch expenses");
       setLoading(false);
     }
   };
