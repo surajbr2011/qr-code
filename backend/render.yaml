@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: restaurant-backend
+    env: node
+    region: oregon  # Change to your preferred region
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5001
+      # Add these in Render dashboard manually with actual values
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: CUSTOMER_FRONTEND_URL
+        sync: false
+      - key: ADMIN_FRONTEND_URL
+        sync: false
+      - key: STAFF_FRONTEND_URL
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false

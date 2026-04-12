@@ -1,209 +1,173 @@
 import { createContext, useContext, useState, useEffect } from "react";
+import { io } from "socket.io-client";
+import api from "../utils/api";
+import toast from "react-hot-toast";
 
-/**
- * OrderContext
- * -------------
- * This holds ALL orders globally.
- * Any page can:
- * - Read orders
- * - Update order status
- */
-
-// Create context
 const OrderContext = createContext();
 
-// Custom hook (clean usage)
 export function useOrders() {
   return useContext(OrderContext);
 }
 
-// Provider component
 export function OrderProvider({ children }) {
-  /**
-   * STEP 1: Global orders state
-   * This replaces hardcoded data inside pages
-   */
-  // Load from localStorage or use defaults
-  // Load from localStorage or use defaults
-  const [orders, setOrders] = useState(() => {
-    const saved = localStorage.getItem("staff_orders_v3");
-    if (saved) return JSON.parse(saved);
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [notifications, setNotifications] = useState([]);
 
-    return [
-      // --- TEST ORDERS (Use these to verify flow) ---
-      {
-        id: 999,
-        type: "table",
-        room: "Table 99 (TEST)",
-        items: [{ name: "CLICK CONFIRM", qty: 1 }],
-        staff: "System",
-        time: "Now",
-        status: "pending",
-      },
-      {
-        id: 998,
-        type: "room",
-        room: "Room 99 (TEST)",
-        items: [{ name: "CLICK CONFIRM", qty: 1 }],
-        staff: "System",
-        time: "Now",
-        status: "pending",
-      },
-      // --- TABLE ORDERS ---
-      {
-        id: 101,
-        type: "table",
-        room: "Table No 5",
-        items: [
-          { name: "Butter Naan", qty: 2 },
-          { name: "Paneer Butter Masala", qty: 1 },
-        ],
-        staff: "Vinayak",
-        time: "12:10 pm",
-        status: "pending",
-      },
-
-      {
-        id: 102,
-        type: "table",
-        room: "Table No 3",
-        items: [
-          { name: "Veg Biryani", qty: 2 },
-          { name: "Coke", qty: 2 },
-        ],
-        staff: "Suraj",
-        time: "12:15 pm",
-        status: "delivered",
-      },
-      // --- TABLE ORDERS (ACTIVE SAMPLE) ---
-      {
-        id: 103,
-        type: "table",
-        room: "Table No 7",
-        items: [
-          { name: "Masala Dosa", qty: 2 },
-          { name: "Filter Coffee", qty: 2 }
-        ],
-        staff: "Ramesh",
-        time: "12:30 pm",
-        status: "confirm",
-      },
-      {
-        id: 104,
-        type: "table",
-        room: "Table No 2",
-        items: [
-          { name: "Veg Meal", qty: 1 }
-        ],
-        staff: "Suresh",
-        time: "12:35 pm",
-        status: "preparing",
-      },
-      // --- ROOM ORDERS ---
-      {
-        id: 1,
-        type: "room",
-        room: "Room No 10",
-        items: [
-          { name: "Panner Tikka", qty: 1 },
-          { name: "oldmonk", qty: 5 },
-          { name: "Pepsi", qty: 10 },
-          { name: "Old Monk", qty: 1 },
-          { name: "Chicken Kabab", qty: 1 },
-        ],
-        staff: "Suraj",
-        time: "12:00 pm",
-        status: "pending",
-      },
-      {
-        id: 2,
-        type: "room",
-        room: "Room No 11",
-        items: [
-          { name: "Panner Tikka", qty: 1 },
-          { name: "Sprite", qty: 5 },
-          { name: "breezer", qty: 10 },
-          { name: "Old Monk", qty: 1 },
-          { name: "Chicken Kabab", qty: 1 },
-        ],
-        staff: "Suraj",
-        time: "12:05 pm",
-        status: "pending",
-      },
-      {
-        id: 10,
-        type: "room",
-        room: "Room No 10",
-        items: ["Punner Tikka", "Sprite", "Pepsi", "Old Monk", "Chicken Kabab"],
-        staff: "Suraj",
-        time: "12:00 pm",
-        status: "delivered",
-      },
-      // --- SAMPLE ACTIVE ORDERS ---
-      {
-        id: 11,
-        type: "room",
-        room: "Room No 12",
-        items: [
-          { name: "Veg Burger", qty: 1 },
-          { name: "French Fries", qty: 1 }
-        ],
-        staff: "Vinayak",
-        time: "12:20 pm",
-        status: "confirm",
-      },
-      {
-        id: 12,
-        type: "room",
-        room: "Room No 14",
-        items: [
-          { name: "Chicken Biryani", qty: 2 }
-        ],
-        staff: "Suraj",
-        time: "12:25 pm",
-        status: "preparing",
-      },
-    ];
-  });
-
-  // Save to localStorage on change
-  useEffect(() => {
-    localStorage.setItem("staff_orders_v3", JSON.stringify(orders));
-  }, [orders]);
-
-  /**
-   * STEP 2: Update order status
-   * This is called from TableRoomSelect
-   */
-  const updateOrderStatus = (id, newStatus) => {
-    setOrders((prev) =>
-      prev.map((order) =>
-        order.id === id ? { ...order, status: newStatus } : order
-      )
-    );
+  // Notification Helpers
+  const addNotification = (notif) => {
+    setNotifications(prev => [{
+      id: Date.now() + Math.random(),
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      read: false,
+      ...notif
+    }, ...prev]);
   };
 
-  /**
-   * STEP 3: Add new order
-   * This is called from Cart
-   */
-  const addOrder = (newOrder) => {
-    setOrders((prev) => [
-      {
-        ...newOrder,
-        id: Date.now(), // Simple unique ID
-        status: "pending",
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        staff: "Suraj" // Default staff for now
-      },
-      ...prev,
-    ]);
+  const markAllRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
+  const clearNotifications = () => {
+    setNotifications([]);
+  };
+
+  // Fetch orders from API
+  const fetchOrders = async () => {
+    try {
+      const { data } = await api.get("/orders");
+      // ... (rest of fetch logic is fine, but shorter for replacement context) 
+      // Actually, I should probably not replace the whole fetchOrders to avoid diff issues if I can help it.
+      // But the Instruction says "Add...". I'll try to just insert the state and update socket effects.
+
+      // Transform data to match UI expectations
+      const mappedOrders = data.map(o => {
+        let orderType = 'table';
+        const tn = (o.tableNo || "").toLowerCase();
+        if (tn.includes('room') || tn.startsWith('r-') || tn.startsWith('r ')) {
+          orderType = 'room';
+        }
+
+        return {
+          id: o._id,
+          type: (o.type === 'self-service' || tn.includes('take') || tn.includes('self')) ? 'self-service' : orderType,
+          room: o.tableNo || "Unknown",
+          tableNo: o.tableNo || "Unknown",
+          items: (o.items || []).map(i => ({
+            id: i?.menuItem || i?._id,
+            name: i?.name || "Unknown Item",
+            quantity: i?.qty || i?.quantity || 1,
+            variant: i?.variant
+          })),
+          staff: o.staff || "Unassigned",
+          time: new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          status: o.status || 'pending',
+          totalAmount: o.totalAmount || 0,
+          instruction: o.specialInstructions
+        };
+      });
+
+      const sortedOrders = mappedOrders
+        .filter(o => o.status !== 'cancelled' && o.status !== 'completed')
+        .sort((a, b) => {
+          const rawB = data.find(raw => raw._id === b.id);
+          const rawA = data.find(raw => raw._id === a.id);
+          if (!rawA || !rawB) return 0;
+          return new Date(rawB.createdAt) - new Date(rawA.createdAt);
+        });
+
+      setOrders(sortedOrders);
+    } catch (err) {
+      console.error("Failed to fetch orders", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Sound and Socket
+  useEffect(() => {
+    const token = localStorage.getItem("staff_token");
+    const socket = io("https://qr-code-1-1aya.onrender.com", {
+      auth: { token },
+      withCredentials: true
+    });
+
+    socket.on("order:new", (newOrder) => {
+      fetchOrders();
+      // Sound
+      const audio = new Audio("/sounds/notification.mp3");
+      audio.volume = 1.0;
+      audio.play().catch(e => {
+        console.log("Sound play error:", e);
+        if (e.name === 'NotAllowedError') {
+          toast("Click anywhere to enable sounds", { icon: "🔇" });
+        }
+      });
+      toast.success(`New Request: ${newOrder.tableNo || "?"}`, { duration: 4000 });
+
+      // Add Notification
+      addNotification({
+        title: `New Order: ${newOrder.tableNo}`,
+        message: `New order request from ${newOrder.tableNo}`,
+        type: 'order'
+      });
+    });
+
+    socket.on("event:new", (event) => {
+      toast(`New Event: ${event.title}`, { icon: "📅", duration: 5000 });
+      addNotification({
+        title: `New Event: ${event.title}`,
+        message: event.description || "Check events page",
+        type: 'event'
+      });
+    });
+
+    // Also listen for Table Calls if backend emits them
+    socket.on("table:call", (data) => {
+      toast("Table Call!", { icon: "🔔" });
+      addNotification({
+        title: `Table Call: ${data.tableId}`,
+        message: "Customer requested service",
+        type: 'alert'
+      });
+    });
+
+    return () => socket.disconnect();
+  }, []);
+
+  // Poll for orders
+  useEffect(() => {
+    fetchOrders();
+    const interval = setInterval(fetchOrders, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Update Status
+  const updateOrderStatus = async (id, newStatus) => {
+    try {
+      let backendStatus = newStatus;
+      await api.put(`/orders/${id}/status`, { status: backendStatus });
+      setOrders(prev => prev.map(o => o.id === id ? { ...o, status: backendStatus } : o));
+      toast.success("Order Updated");
+      fetchOrders();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to update order");
+    }
+  };
+
+  const addOrder = async (orderData) => {
+    try {
+      await api.post("/orders", orderData);
+      fetchOrders();
+      toast.success("Order created");
+    } catch (err) {
+      toast.error("Failed to create order");
+    }
   };
 
   return (
-    <OrderContext.Provider
-      value={{ orders, updateOrderStatus, addOrder }}
-    >
+    <OrderContext.Provider value={{ orders, updateOrderStatus, addOrder, loading, notifications, markAllRead, clearNotifications }}>
       {children}
     </OrderContext.Provider>
   );

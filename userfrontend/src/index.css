@@ -9,12 +9,20 @@ body {
 /* ============================= */
 /* HIDE SCROLLBAR (ALL BROWSERS) */
 /* ============================= */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar,
+::-webkit-scrollbar {
+  display: none !important;
 }
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar,
+body,
+main {
+  -ms-overflow-style: none !important;
+  /* IE and Edge */
+  scrollbar-width: none !important;
+  /* Firefox */
 }
 
 /* ============================= */
@@ -30,12 +38,14 @@ body {
 .pagination-dots span {
   width: 6px;
   height: 6px;
-  background: #d1d5db; /* gray-300 */
+  background: #d1d5db;
+  /* gray-300 */
   border-radius: 9999px;
 }
 
 .pagination-dots span.active {
-  background: #f97316; /* orange-500 */
+  background: #f97316;
+  /* orange-500 */
 }
 
 

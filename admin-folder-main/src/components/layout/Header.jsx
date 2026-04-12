@@ -1,4 +1,5 @@
 import { Bell, Search, Menu, LogOut, ChevronDown, X } from "lucide-react";
+import { Bell, Search, Menu } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useState, useRef, useEffect } from "react";
 import { Icon } from "@iconify/react";
@@ -7,6 +8,8 @@ import toast from "react-hot-toast";
 import NotificationsModal from "../modals/NotificationsModal";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../../context/AuthContext";
+import NotificationsModal from "../modals/NotificationsModal"; // Assuming correct path
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function Header({ onSearch, onToggleSidebar }) {
   const location = useLocation();

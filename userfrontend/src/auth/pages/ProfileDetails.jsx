@@ -1,21 +1,58 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import PageWrapper from "../../components/PageWrapper";
 import AuthLayout from "../layout/AuthLayout";
 import InputField from "../components/InputField";
 import PrimaryButton from "../components/PrimaryButton";
+import api from "../../utils/api";
+import { toast } from "react-hot-toast";
 
 export default function ProfileDetails() {
   const navigate = useNavigate();
+  const locationState = useLocation().state || {};
 
-  const [email, setEmail] = useState("");
+  // State from previous step (Signup)
+  const initialEmail = locationState.email || "";
+  const initialPhone = locationState.phone || "";
+  const password = locationState.password || "";
+
+  const [email, setEmail] = useState(initialEmail);
   const [name, setName] = useState("");
   const [countryCode, setCountryCode] = useState("+91");
-  const [contact, setContact] = useState("");
+  const [contact, setContact] = useState(initialPhone);
+  // Init table from QR scan if available
+  // Init table from QR scan if available
+  useEffect(() => {
+    const scannedName = localStorage.getItem("qr_location_name");
+    const scannedTable = localStorage.getItem("qr_table_id");
+    const scannedRoom = localStorage.getItem("qr_room_id");
+
+    // Priority: Name (formatted) > Room ID > Table ID
+    let finalValue = "";
+    if (scannedName && scannedName !== "undefined" && scannedName !== "null") {
+      finalValue = scannedName;
+    } else if (scannedRoom && scannedRoom !== "undefined" && scannedRoom !== "null") {
+      finalValue = scannedRoom;
+    } else if (scannedTable && scannedTable !== "undefined" && scannedTable !== "null") {
+      finalValue = scannedTable;
+    }
+
+    if (finalValue) {
+      setTableRoom(finalValue);
+      setIsTableFixed(true);
+    }
+  }, []);
+
   const [tableRoom, setTableRoom] = useState("");
-  const [location, setLocation] = useState("");
-  const { saveUser } = useAuth();
+  const [isTableFixed, setIsTableFixed] = useState(false);
+  const [formLocation, setLocation] = useState("");
+  const { login } = useAuth();
+  const [loading, setLoading] = useState(false);
+
+  // ... (rest of code) ...
+
+
 
 
   const [touched, setTouched] = useState({
@@ -38,7 +75,7 @@ export default function ProfileDetails() {
       ? /^[0-9]{10}$/.test(contact)
       : /^[0-9]{6,15}$/.test(contact);
 
-  const isTableValid = /^[0-9]+$/.test(tableRoom);
+  const isTableValid = tableRoom.trim().length > 0; // Allow any non-empty table/room identifier
 
   const isFormValid =
     isEmailValid && isNameValid && isContactValid && isTableValid;
@@ -65,7 +102,7 @@ export default function ProfileDetails() {
     setContact(digits);
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     setTouched({
       email: true,
       name: true,
@@ -75,8 +112,45 @@ export default function ProfileDetails() {
 
     if (!isFormValid) return;
 
+    try {
+      setLoading(true);
+      // Prepare payload for /auth/register
+      // Backend expects: name, password, email (optional), phone (optional)
+      // We also have tableRoom and location data to handle?
+      // Usually auth just creates user. Extra details might need another call or be stored in user profile.
+      // Let's assume for now we just register the user.
+      // If the backend doesn't support table/room in register, we might lose it unless we send it.
+      // Looking at typical structure: name, email, password are key.
 
-    navigate("/dashboard");
+      const payload = {
+        name,
+        password,
+        email,
+        phone: contact, // assuming contact is the phone number
+        // if backend supports extra metadata in register, add it here
+        tableNumber: tableRoom,
+        location: formLocation
+      };
+
+      const { data } = await api.post('/auth/register', payload);
+
+      console.log("Registration success:", data);
+      toast.success("Account created successfully!");
+
+      // Auto-login / Store token
+      const { token, refreshToken } = data;
+      if (token) {
+        login(data, token, refreshToken);
+      }
+
+      navigate("/menu");
+
+    } catch (err) {
+      console.error("Registration invalid:", err);
+      toast.error(err.response?.data?.message || "Registration failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -153,13 +227,15 @@ export default function ProfileDetails() {
             placeholder="Table / Room Number"
             value={tableRoom}
             onChange={(e) =>
-              setTableRoom(
-                e.target.value.replace(/[^0-9]/g, "")
+              !isTableFixed && setTableRoom(
+                e.target.value.replace(/[^a-zA-Z0-9-]/g, "")
               )
             }
             onBlur={() =>
               setTouched((t) => ({ ...t, tableRoom: true }))
             }
+            readOnly={isTableFixed}
+            className={isTableFixed ? "bg-gray-100 cursor-not-allowed opacity-70" : ""}
           />
           {touched.tableRoom && !isTableValid && (
             <p className="text-xs text-red-500">
@@ -170,16 +246,16 @@ export default function ProfileDetails() {
           {/* LOCATION */}
           <InputField
             placeholder="Location (Optional)"
-            value={location}
+            value={formLocation}
             onChange={(e) => setLocation(e.target.value)}
           />
         </div>
 
         <div className="mt-6">
           <PrimaryButton
-            text="Continue"
+            text={loading ? "Creating Account..." : "Continue"}
             onClick={handleContinue}
-            disabled={!isFormValid}
+            disabled={!isFormValid || loading}
           />
         </div>
       </AuthLayout>

@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import PageWrapper from "../../components/PageWrapper";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useCart } from "../../context/CartContext";
 import { useOrders } from "../../context/OrderContext";
-import { FiMinus, FiPlus, FiChevronLeft, FiBell, FiChevronRight, FiCheckCircle, FiCheck } from "react-icons/fi";
-import { foods } from "../../data/foods"; // Import foods for upsell
+import { FiMinus, FiPlus, FiChevronLeft, FiBell, FiChevronRight, FiCheckCircle, FiCheck, FiTrash2 } from "react-icons/fi";
+import api from "../../utils/api";
 import PromoCode from "../../components/PromoCode";
 import toast from "react-hot-toast";
 
@@ -16,6 +16,21 @@ export default function Cart() {
     const { addOrder } = useOrders();
     const [orderPlaced, setOrderPlaced] = useState(false);
     const [discount, setDiscount] = useState(0);
+    const [upsellItems, setUpsellItems] = useState([]);
+
+    // Fetch some items for upsell
+    useEffect(() => {
+        const fetchUpsell = async () => {
+            try {
+                const { data } = await api.get('/menu');
+                // Pick 4 random items or just the first 4
+                setUpsellItems(data.slice(0, 4).map(item => ({ ...item, id: item._id })));
+            } catch (err) {
+                console.error("Failed to fetch upsell items", err);
+            }
+        };
+        fetchUpsell();
+    }, []);
 
     // Veg Toggle State
     const [vegModeIndex, setVegModeIndex] = useState(1); // Default "all"
@@ -42,60 +57,58 @@ export default function Cart() {
     const finalTotal = totalAmount + taxes - discount;
 
     const handlePlaceOrder = () => {
-        // Construct new order
-        const newOrder = {
-            type: location.state?.type || "table",
-            room: location.state?.room || "Table No ?",
-            items: cartItems,
+        // Construct new order for backend
+        const orderPayload = {
+            tableNo: location.state?.tableId || location.state?.room || "Staff Ordered",
+            items: cartItems.map(item => ({
+                menuItem: item.id,
+                name: item.name,
+                price: item.price,
+                qty: item.qty,
+                category: item.category
+            })),
+            totalAmount: finalTotal,
+            status: 'pending',
+            paymentStatus: 'pending'
         };
 
-        addOrder(newOrder);
+        addOrder(orderPayload);
         setOrderPlaced(true);
-        toast.success("Order forwarded to kitchen!");
+        // toast.success is handled in OrderContext
 
         // Clear cart and redirect
         setTimeout(() => {
             clearCart();
-            // navigate("/staff/order-management"); // Optional redirect
-            navigate(-1); // Go back after success
+            navigate("/staff/orders"); // Redirect to Dashboard
         }, 2000);
     };
 
     return (
         <>
-            <PageWrapper className="pb-40 bg-[#F5F7FB] min-h-screen max-w-[430px] mx-auto">
-                {/* Header */}
-                <div className="bg-white px-4 py-4 flex items-center justify-between sticky top-0 z-10 shadow-sm">
-                    <button onClick={() => navigate(-1)} className="p-1">
-                        <FiChevronLeft size={28} className="text-black" />
-                    </button>
-                    <h1 className="text-xl font-bold text-black">Checkout</h1>
+            {/* Header - Moved Outside PageWrapper for Sticky Behavior */}
+            <div className="bg-white px-4 py-4 flex items-center justify-between sticky top-0 z-50 shadow-sm max-w-[430px] mx-auto">
+                <button onClick={() => navigate(-1)} className="p-1">
+                    <FiChevronLeft size={28} className="text-black" />
+                </button>
+                <h1 className="text-xl font-bold text-black">Checkout</h1>
 
-                    {/* Veg Toggle */}
-                    <div className="flex flex-col items-center min-w-[50px]">
-                        <span className="text-[9px] font-bold text-gray-500 mb-0.5 uppercase">
-                            {vegMode === "veg" ? "Veg" : vegMode === "nonveg" ? "Non" : "All"}
-                        </span>
-                        <button
-                            onClick={handleVegToggle}
-                            className={`w-10 h-5 rounded-full relative transition-colors duration-200 ${vegMode === 'veg'
-                                ? "bg-[#00A86B]"
-                                : vegMode === 'nonveg'
-                                    ? "bg-red-500"
-                                    : "bg-gray-300"
-                                }`}
-                        >
-                            <span
-                                className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-200 ${vegMode === 'veg'
-                                    ? "left-0.5"
-                                    : vegMode === 'nonveg'
-                                        ? "left-[22px]"
-                                        : "left-[12px]"
-                                    }`}
-                            />
-                        </button>
-                    </div>
-                </div>
+                {/* Clear Cart Button */}
+                {cartItems.length > 0 && (
+                    <button
+                        onClick={() => {
+                            if (window.confirm("Are you sure you want to clear the cart?")) {
+                                clearCart();
+                                toast.success("Cart cleared");
+                            }
+                        }}
+                        className="w-10 h-10 bg-red-50 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+                    >
+                        <FiTrash2 size={20} className="text-red-500" />
+                    </button>
+                )}
+            </div>
+
+            <PageWrapper className="pb-32 bg-[#F5F7FB] min-h-screen max-w-[430px] mx-auto pt-2">
 
                 {/* Cart Items */}
                 <div className="px-4 mt-2">
@@ -169,11 +182,11 @@ export default function Cart() {
                 </div>
 
                 {/* Complete Your Meals (Upsell) */}
-                {cartItems.length > 0 && (
+                {cartItems.length > 0 && upsellItems.length > 0 && (
                     <div className="mt-8 px-4">
                         <h3 className="text-base font-bold text-black mb-3">Complete Your Meals</h3>
                         <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
-                            {foods.slice(0, 4).map((food) => (
+                            {upsellItems.map((food) => (
                                 <div key={food.id} className="min-w-[100px] bg-white rounded-xl border border-gray-100 pb-2 shadow-sm">
                                     <div className="relative">
                                         <img src={food.image} className="w-full h-20 object-cover rounded-t-xl" alt={food.name} />
@@ -238,7 +251,7 @@ export default function Cart() {
 
             {/* Place Order Button or Success Message */}
             {cartItems.length > 0 && (
-                <div className="fixed bottom-[74px] left-1/2 -translate-x-1/2 w-full max-w-[420px] px-4 z-20">
+                <div className="fixed bottom-24 left-1/2 -translate-x-1/2 w-full max-w-[420px] px-4 z-[60]">
                     {!orderPlaced ? (
                         <button
                             onClick={handlePlaceOrder}

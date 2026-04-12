@@ -2,15 +2,37 @@ import { useState } from "react";
 import PageWrapper from "../components/PageWrapper";
 import { useNavigate } from "react-router-dom";
 import BottomNav from "../components/BottomNav";
+import { useCart } from "../context/CartContext";
+import toast from "react-hot-toast";
 
 export default function AddToCart() {
   const navigate = useNavigate();
+  const { cartItems, placeOrder, increaseQty, decreaseQty } = useCart();
+  const [loading, setLoading] = useState(false);
 
-  // Dummy cart item (UI only – backend later)
-  const [quantity, setQuantity] = useState(1);
+  // Calculate total price
+  const price = cartItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
+  const total = price; // Add tax logic if you want later
 
-  const price = 220;
-  const total = price * quantity;
+  const handlePlaceOrder = async () => {
+    if (cartItems.length === 0) {
+      toast.error("Cart is empty");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const newOrder = await placeOrder();
+      toast.success("Order Placed!");
+      // Navigate to confirmation with order details
+      navigate("/order-confirmation", { state: { orderId: newOrder._id } });
+    } catch (err) {
+      toast.error("Failed to place order. Try again.");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <PageWrapper className="min-h-screen bg-white pb-16">
@@ -20,43 +42,50 @@ export default function AddToCart() {
         <h1 className="text-xl font-bold">Your Cart</h1>
       </div>
 
-      {/* Cart Item */}
-      <div className="flex items-center px-4 py-4 border-b">
-        <img
-          src="https://via.placeholder.com/80"
-          alt="Food"
-          className="w-20 h-20 rounded object-cover"
-        />
+      {/* Cart Items List */}
+      <div className="flex-1 overflow-y-auto">
+        {cartItems.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">Your cart is empty</div>
+        ) : (
+          cartItems.map((item) => (
+            <div key={item._id || item.id} className="flex items-center px-4 py-4 border-b">
+              <div className="w-16 h-16 bg-gray-200 rounded overflow-hidden">
+                {/* Placeholder or real image */}
+                <div className="w-full h-full flex items-center justify-center text-xs text-gray-500">IMG</div>
+              </div>
 
-        <div className="ml-4 flex-1">
-          <h2 className="font-semibold text-lg">
-            Paneer Butter Masala
-          </h2>
-          <p className="text-gray-500">₹{price}</p>
-        </div>
+              <div className="ml-4 flex-1">
+                <h2 className="font-semibold text-lg">
+                  {item.name}
+                </h2>
+                <p className="text-gray-500">₹{item.price}</p>
+              </div>
 
-        {/* Quantity Control */}
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={() => setQuantity(Math.max(1, quantity - 1))}
-            className="w-8 h-8 border rounded text-lg"
-          >
-            −
-          </button>
+              {/* Quantity Control */}
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => decreaseQty(item.id)}
+                  className="w-8 h-8 border rounded text-lg flex items-center justify-center"
+                >
+                  −
+                </button>
 
-          <span className="font-semibold">{quantity}</span>
+                <span className="font-semibold">{item.qty}</span>
 
-          <button
-            onClick={() => setQuantity(quantity + 1)}
-            className="w-8 h-8 border rounded text-lg"
-          >
-            +
-          </button>
-        </div>
+                <button
+                  onClick={() => increaseQty(item.id)}
+                  className="w-8 h-8 border rounded text-lg flex items-center justify-center"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* Price Summary */}
-      <div className="px-4 py-4 space-y-2">
+      <div className="px-4 py-4 space-y-2 bg-gray-50">
         <div className="flex justify-between text-gray-600">
           <span>Item Total</span>
           <span>₹{total}</span>
@@ -76,10 +105,11 @@ export default function AddToCart() {
       {/* Place Order Button */}
       <div className="px-4 mt-6">
         <button
-          onClick={() => navigate("/order-confirmation")}
-          className="w-full bg-green-600 text-white py-3 rounded font-semibold"
+          onClick={handlePlaceOrder}
+          disabled={loading}
+          className={`w-full bg-green-600 text-white py-3 rounded font-semibold ${loading ? 'opacity-70' : ''}`}
         >
-          Place Order
+          {loading ? 'Placing Order...' : 'Place Order'}
         </button>
       </div>
 

@@ -64,7 +64,7 @@ export default function StaffManagement() {
       setLoading(false);
     } catch (err) {
       console.error(err);
-      toast.error(err.response?.data?.message || err.message || "Failed to load staff");
+      toast.error("Failed to load staff");
       setLoading(false);
     }
   };
