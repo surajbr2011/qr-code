@@ -14,20 +14,30 @@ const authStaff = async (req, res) => {
 
     try {
         // Allow login with either email or employeeId (frontend might send either key or just 'email' as a generic field)
-        const loginIdentity = email || employeeId;
+        const loginIdentity = (email || employeeId || '').toLowerCase().trim();
+        console.log(`[AUTH] Login attempt for identity: "${loginIdentity}"`);
 
         if (!loginIdentity) {
+            console.log(`[AUTH] Failed: Missing identity`);
             return res.status(400).json({ message: 'Email or Employee ID is required' });
         }
 
         const staff = await Staff.findOne({
             $or: [
                 { email: loginIdentity },
-                { employeeId: loginIdentity }
+                { employeeId: { $regex: new RegExp(`^${loginIdentity}$`, 'i') } }
             ]
         });
 
-        if (staff && (await staff.matchPassword(password))) {
+        if (!staff) {
+            console.log(`[AUTH] Failed: Staff not found for "${loginIdentity}"`);
+            return res.status(401).json({ message: 'Invalid credentials' });
+        }
+
+        const isMatch = await staff.matchPassword(password);
+        console.log(`[AUTH] Staff found: "${staff.email}". Password match: ${isMatch}`);
+
+        if (isMatch) {
             const accessToken = generateAccessToken(staff._id);
             const refreshToken = generateRefreshToken(staff._id);
 
@@ -46,6 +56,7 @@ const authStaff = async (req, res) => {
                 refreshToken,
             });
         } else {
+            console.log(`[AUTH] Failed: Password mismatch for "${loginIdentity}"`);
             res.status(401).json({ message: 'Invalid credentials' });
         }
     } catch (error) {
@@ -273,7 +284,7 @@ const authCustomer = async (req, res) => {
     const { email, phone, password } = req.body;
 
     // Allow login with either email or phone
-    const loginIdentity = email || phone;
+    const loginIdentity = (email || phone || '').toLowerCase().trim();
 
     try {
         console.log(`[AUTH DEBUG] Login attempt for: ${loginIdentity}`);

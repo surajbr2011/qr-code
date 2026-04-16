@@ -25,7 +25,7 @@ export function AuthProvider({ children }) {
     try {
       // Dynamic import or just standard fetch to avoid circular dep risks if any
       const token = localStorage.getItem("customer_token");
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://qr-code-1-1aya.onrender.com/api'}/auth/profile`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/auth/profile`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (response.ok) {
