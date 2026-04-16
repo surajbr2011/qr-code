@@ -3,7 +3,7 @@ import PageWrapper from "../components/layout/PageWrapper";
 import { Icon } from "@iconify/react";
 import { Calendar } from "lucide-react";
 import api from "../utils/api";
-import { io } from "socket.io-client";
+import socket from "../utils/socket";
 import CartSummary from "../components/cards/CartSummary";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
@@ -54,30 +54,20 @@ export default function Reports() {
   useEffect(() => {
     fetchData();
 
-    // Socket Connection
-    const socketUrl = (import.meta.env.VITE_API_URL || "https://qr-code-1-1aya.onrender.com/api").replace("/api", "");
-    const socket = io(socketUrl, {
-      transports: ["websocket", "polling"],
-      withCredentials: true
-    });
-
-    socket.on("connect", () => {
-      console.log("Reports connected to socket:", socket.id);
-    });
-
-    // Listen for order updates
+    // Listen for order updates using the shared socket utility
     socket.on("order:new", (newOrder) => {
-      console.log("New Order Received:", newOrder);
+      console.log("New Order Received (Reports):", newOrder);
       fetchData(); // Refresh data
     });
 
     socket.on("order:update", (updatedOrder) => {
-      console.log("Order Updated:", updatedOrder);
+      console.log("Order Updated (Reports):", updatedOrder);
       fetchData(); // Refresh data
     });
 
     return () => {
-      socket.disconnect();
+      socket.off("order:new");
+      socket.off("order:update");
     };
   }, []);
 

@@ -25,8 +25,6 @@ export default function OrderManagement() {
   useEffect(() => {
     fetchOrders();
 
-    fetchOrders();
-
     socket.on("order:new", (newOrder) => {
       console.log("🔔 Admin Socket: New Order Received!", newOrder);
       fetchOrders();
@@ -48,10 +46,16 @@ export default function OrderManagement() {
       });
     });
 
-    const interval = setInterval(fetchOrders, 10000); // 10s poll
+    socket.on("order:update", (updatedOrder) => {
+      console.log("🔔 Admin Socket: Order Updated!", updatedOrder);
+      fetchOrders();
+    });
+
+    const interval = setInterval(fetchOrders, 30000); // Increased to 30s since we have sockets
     return () => {
       clearInterval(interval);
       socket.off("order:new");
+      socket.off("order:update");
     };
   }, []);
 

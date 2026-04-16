@@ -25,7 +25,7 @@ export default function BarChart({ data = [] }) {
       </h3>
 
       <div className="h-48 w-full min-h-[200px]">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
           <RechartsBarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
             <XAxis
               dataKey="name"

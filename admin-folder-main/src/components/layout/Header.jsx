@@ -1,5 +1,4 @@
 import { Bell, Search, Menu, LogOut, ChevronDown, X } from "lucide-react";
-import { Bell, Search, Menu } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useState, useRef, useEffect } from "react";
 import { Icon } from "@iconify/react";
@@ -8,8 +7,6 @@ import toast from "react-hot-toast";
 import NotificationsModal from "../modals/NotificationsModal";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../../context/AuthContext";
-import NotificationsModal from "../modals/NotificationsModal"; // Assuming correct path
-import { motion, AnimatePresence } from "framer-motion";
 
 export default function Header({ onSearch, onToggleSidebar }) {
   const location = useLocation();
@@ -52,7 +49,7 @@ export default function Header({ onSearch, onToggleSidebar }) {
   ];
 
   useEffect(() => {
-    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
     // Update Token & Connect
     const token = localStorage.getItem("admin_token");
@@ -115,7 +112,7 @@ export default function Header({ onSearch, onToggleSidebar }) {
 
   const markAsRead = async (id) => {
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
       await fetch(`${API_URL}/notifications/${id}/read`, { method: 'PUT' });
       setNotifications(prev => prev.map(n => n._id === id ? { ...n, isRead: true } : n));
     } catch (err) {
@@ -125,7 +122,7 @@ export default function Header({ onSearch, onToggleSidebar }) {
 
   const deleteNotification = async (id) => {
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
       await fetch(`${API_URL}/notifications/${id}`, { method: 'DELETE' });
       setNotifications(prev => prev.filter(n => n._id !== id));
       toast.success("Notification deleted");

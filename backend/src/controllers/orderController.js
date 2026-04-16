@@ -179,7 +179,7 @@ const getOrderStats = async (req, res) => {
                         $sum: { $cond: [{ $in: ["$status", ["pending", "confirm", "preparing", "ready", "ontheway"]] }, 1, 0] }
                     },
                     deliveredOrders: {
-                        $sum: { $cond: [{ $eq: ["$status", "delivered"] }, 1, 0] }
+                        $sum: { $cond: [{ $in: ["$status", ["delivered", "completed"]] }, 1, 0] }
                     }
                 }
             }
